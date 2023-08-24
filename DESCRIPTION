@@ -1,0 +1,15 @@
+Package: cprdaurumtools
+Type: Package
+Title: Functions to process CPRD Aurum data files
+Version: 0.1.0
+Author: Pieta Schofield
+Maintainer: Pieta Schofield <pieta.schofield@liverpool.ac.uk>
+Description: Functions used to process CPRD records 
+License: CCL
+Encoding: UTF-8
+LazyData: true
+Import:
+  tidyverse
+  RSQLite
+  BiocParallel
+RoxygenNote: 7.2.3

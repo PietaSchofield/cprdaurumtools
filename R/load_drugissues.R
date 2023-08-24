@@ -7,26 +7,30 @@
 #' @param bpp BiocParallal Multicore Parameters
 #'
 #' @export
-get_di_batch_summary <- function(bdir,odir,dl=NULL,bpp=BiocParallel::bpparam(),ow=F,db=F){
+load_drugissues <- function(pddir,dbf,ow=F,db=F,tab_name="drug_issues",
+    selvars2=c("patid","prodcodeid","issuedate","dosageid","quantity","quantunitid","duration")){
   difiles <- list.files(pddir,pattern="Drug",full=T)
-  if(!file.exists(dirdsfile) | ow){
-    selvars2 <- c("patid","prodcodeid","issuedate")
-      dat <- readr::read_tsv(fn,col_types=readr::cols(.default=readr::col_character())) %>%
-        {if(!is.null(dl)) filter(.,prodcodeid%in%dl) else . } %>%
-        dplyr::select(dplyr::all_of(selvars2)) %>%
-        dplyr::mutate(issuedate = lubridate::dmy(issuedate)) %>%
-        dplyr::group_by(.data$patid,.data$prodcodeid) %>%
-        dplyr::summarise(issues=dplyr::n(),
-                         firstissue=min(issuedate),
-                         lastissue=max(issuedate),.groups="drop")
+  dbi <- RSQLite::dbConnect(RSQLite::SQLite(),dbf)
+  nrec <- 0
+  if(!tab_name%in%RSQLite::dbListTables(dbi) | ow){
+    if(tab_name%in%RSQLite::dbListTables(dbi)){
+      RSQLite::dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))
     }
-    ,BPPARAM=bpp)) %>% 
-    dplyr::group_by(.data$patid,.data$prodcodeid) %>%
-    dplyr::summarise(issues=sum(issues),
-                     firstissue=min(firstissue),
-                     lastissue=max(lastissue),.groups="drop") %>% 
-    saveRDS(file=dirdsfile)
-    if(db) dta <- readRDS(dirdsfile)
+    nrec <- lapply(difiles,function(fn){
+      dat <- readr::read_tsv(fn,col_types=readr::cols(.default=readr::col_character())) %>%
+        dplyr::select(dplyr::all_of(selvars2)) %>%
+        dplyr::mutate(issuedate = format(lubridate::dmy(issuedate))) 
+      if(tab_name%in%RSQLite::dbListTables(dbi)){
+        RSQLite::dbWriteTable(dbi,tab_name,dat,append=T,overwrite=F)
+      }else{
+        RSQLite::dbWriteTable(dbi,tab_name,dat,append=T,overwrite=F)
+      }
+      nr <- dat %>% nrow()
+      cat(paste0(fn," ",nr," records loaded\n"))
+      rm(dat)
+      gc()
+    })
   }
-  return(dirdsfile)
+  trec <- nrec %>% unlist() %>% sum()
+  return(paste0(trec," records loaded"))
 }

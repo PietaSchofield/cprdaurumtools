@@ -9,12 +9,13 @@
 #'
 #'
 #' Pass a table of covariate codes and generate covariates table
-#'
+#' @import magrittr
 #' @export
 load_obs <- function(pddir,dbf,bpp=BiocParallel::bpparam(),ow=F,db=F,tab_name="observations",
     selvars=c("patid","consid","parentobsid","probobsid","medcodeid","obsdate","value","numunitid")){
   obsfiles <- list.files(pddir,pattern="Obs",full=T)
   dbi <- RSQLite::dbConnect(RSQLite::SQLite(),dbf)
+  nrec <- 0
   if(!tab_name%in%RSQLite::dbListTables(dbi) || ow){
     if(tab_name%in%RSQLite::dbListTables(dbi)){
       RSQLite::dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))

@@ -7,7 +7,7 @@
 #'
 #' @export
 load_patients <- function(pddir,dbf,ow=F,db=F,tabname="patients",
-   selvars1=c("patid","gender","yob","regstartdate","regenddate","emis_ddate","cprd_ddate")){
+   selvars1=c("patid","pracid","gender","yob","regstartdate","regenddate","emis_ddate","cprd_ddate")){
   patfiles <- list.files(pddir,pattern="Patient",full=T)
   dbi <- RSQLite::dbConnect(RSQLite::SQLite(),dbf)
   ret <- 0

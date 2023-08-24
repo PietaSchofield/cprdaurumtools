@@ -34,6 +34,8 @@ in memory.
 ### Paths
 
 ```{r}
+require(cprdaurumtools)
+require(tidyverse)
 homeDir <- Sys.getenv("HOME")
 projRoot <- file.path(homeDir,"Projects")
 pdir <- file.path(projRoot,"cprdaurumtools")
@@ -41,36 +43,81 @@ dir.create(pdir,showW=F)
 batch <- 1 
 ddir <- file.path(projRoot,"t2dd",".data","aurum_may",paste0("batch",batch))
 rdir <- file.path(projRoot,"cprd","refs","202205_Lookups_CPRDAurum")
-dbif <- file.path(pdir,"testaurumdata.sqlite")
+ldir <- file.path(projRoot,"t2dd",".data","linked_data")
+hdir <- file.path(ldir,"hes")
+odir <- file.path(ldir,"ons")
+idir <- file.path(ldir,"imd")
+dbif <- file.path(pdir,".data","aurumdata_prep.sqlite")
 dir(ddir)
 dir(rdir)
+dir(hdir) 
+dir(idir)
+dir(odir)
 ```
 
 ### Load Patients
 
 ```{r}
 pddir <- file.path(ddir,"Patient")
-load_patients(pddir=pddir,dbf=dbif,ow=T,db=F)
+load_patients(pddir=pddir,dbf=dbif,ow=F)
+str_sql <- "SELECT patid FROM patients;"
+dbi <- RSQLite::dbConnect(RSQLite::SQLite(),dbif)
+patids <- RSQLite::dbGetQuery(dbi,str_sql) %>% as_tibble() %>% pull(patid)
+RSQLite::dbDisconnect(dbi)
 ```
 
 ## Load Observations
 
 ```{r}
 pddir <- file.path(ddir,"Observation")
-load_obs(pddir=pddir,dbf=dbif,ow=T,db=F)
+load_obs(pddir=pddir,dbf=dbif,ow=F)
 ```
 
 ## Load CPRD references
 
 ```{r}
-load_cprdfiles(pddir=rdir,dbf=dbif)
+load_cprdfiles(pddir=rdir,dbf=dbif,ow=F)
+```
+
+## Load Drug Issues
+
+```{r}
+pddir <- file.path(ddir,"DrugIssue")
+load_drugissues(pddir=pddir,dbf=dbif,ow=F)
 ```
 
 ## Load HES data
 
+```{r}
+load_hesfiles(pddir=hdir,dbf=dbif,tad="21_001631.*",pats=patids,ow=F)
+```
 
 ## Load IMD data
 
+```{r}
+load_imdfiles(pddir=idir,dbf=dbif,tad="21_001631.*",pats=patids,ow=F)
+```
+
+## Load ONS data
+
+```{r}
+load_onsfiles(pddir=odir,dbf=dbif,tad="21_001631.*",pats=patids,ow=F)
+```
+
+## Pre-processing
+
+At this point we have loaded a lot of data into the pre-processing database the next step is to transfer
+processed records to the analysis database
+
+### Complete Cases
+
+Possibly we need to join the patient table with the HES patient table and their ONS and IMD data
+
+```{r}
+dbanal <- file.path(pdir,".data","aurumdata_anal.sqlite")
+dbprep <- file.path(pdir,".data","aurumdata_prep.sqlite")
+proc_patients(dbpre=dbprep,dbpost=dbanal)
+```
 
 
 

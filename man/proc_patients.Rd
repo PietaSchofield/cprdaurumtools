@@ -4,7 +4,16 @@
 \alias{proc_patients}
 \title{load patients}
 \usage{
-proc_patients(dbpost = dbpost, dbpre = dbpre)
+proc_patients(
+  dbpost = dbpost,
+  dbpre = dbpre,
+  ow = F,
+  db = F,
+  newtab = "patients",
+  oldtab = "patients",
+  jointabs = list(opats = "death_patient", hpats = "hes_patient", ipats =
+    "patient_2019_imd")
+)
 }
 \arguments{
 \item{batch}{the name of the batch subdirectory}

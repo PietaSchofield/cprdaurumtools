@@ -12,8 +12,9 @@
 #' @import magrittr
 #' @export
 load_obs <- function(pddir,dbf,bpp=BiocParallel::bpparam(),ow=F,db=F,tab_name="observations",
-    selvars=c("patid","consid","parentobsid","probobsid","medcodeid","obsdate","value","numunitid")){
-  obsfiles <- list.files(pddir,pattern="Obs",full=T)
+    selvars=c("patid","consid","parentobsid","probobsid","medcodeid","obsdate","value","numunitid",
+              "numrangelow","numrangehigh")){
+  obsfiles <- list.files(pddir,pattern="Obs.*txt$",full=T,recur=T)
   dbi <- RSQLite::dbConnect(RSQLite::SQLite(),dbf)
   nrec <- 0
   if(!tab_name%in%RSQLite::dbListTables(dbi) || ow){

@@ -12,7 +12,7 @@ load_obs(
   db = F,
   tab_name = "observations",
   selvars = c("patid", "consid", "parentobsid", "probobsid", "medcodeid", "obsdate",
-    "value", "numunitid")
+    "value", "numunitid", "numrangelow", "numrangehigh")
 )
 }
 \arguments{

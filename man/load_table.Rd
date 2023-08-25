@@ -9,7 +9,7 @@ load_table(
   dbf,
   ow = F,
   db = F,
-  tab_name = gsub("[.].*", "", filename),
+  tab_name = gsub("[.].*", "", basename(filename)),
   selvars = NULL
 )
 }

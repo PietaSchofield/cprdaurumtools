@@ -11,7 +11,8 @@
 #' Pass a table of covariate codes and generate covariates table
 #' @import magrittr
 #' @export
-load_table <- function(filename,dbf,ow=F,db=F,tab_name=gsub("[.].*","",filename), selvars=NULL){
+load_table <- function(filename,dbf,ow=F,db=F,tab_name=gsub("[.].*","",basename(filename)), 
+                       selvars=NULL){
   nrec <- 0
   if(file.exists(filename)){
     dbi <- RSQLite::dbConnect(RSQLite::SQLite(),dbf)

@@ -13,22 +13,22 @@
 #' @export
 load_staff <- function(pddir,dbf,ow=F,db=F,tab_name="staff"){
   obsfiles <- list.files(pddir,pattern="Staff.*txt$",full=T,recur=T)
-  dbi <- RSQLite::dbConnect(RSQLite::SQLite(),dbf)
+  dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
   nrec <- 0
-  if(!tab_name%in%RSQLite::dbListTables(dbi) || ow){
-    if(tab_name%in%RSQLite::dbListTables(dbi)){
-      RSQLite::dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))
+  if(!tab_name%in%duckdb::dbListTables(dbi) || ow){
+    if(tab_name%in%duckdb::dbListTables(dbi)){
+      duckdb::dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))
     }
     nrec <- lapply(obsfiles,function(fn){
       dat <- readr::read_tsv(fn,col_types=readr::cols(.default=readr::col_character())) 
-      if(tab_name%in%RSQLite::dbListTables(dbi)){
+      if(tab_name%in%duckdb::dbListTables(dbi)){
         app=T
         ovr=F
       }else{
         app=F
         ovr=T
       }
-      RSQLite::dbWriteTable(dbi,tab_name,dat,overwrite=ovr,append=app)
+      duckdb::dbWriteTable(dbi,tab_name,dat,overwrite=ovr,append=app)
       nr <- dat %>% nrow()
       cat(paste0(basename(fn),": ",nr," records loaded\n"))
       rm(dat)
@@ -36,7 +36,7 @@ load_staff <- function(pddir,dbf,ow=F,db=F,tab_name="staff"){
       return(nr)
     })
   }
-  RSQLite::dbDisconnect(dbi)
+  duckdb::dbDisconnect(dbi)
   trec <- sum(unlist(nrec))
   return(cat(paste0(trec," records processed\n")))
 }

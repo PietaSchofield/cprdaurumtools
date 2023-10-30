@@ -15,24 +15,24 @@ load_obs <- function(pddir,dbf,bpp=BiocParallel::bpparam(),ow=F,db=F,tab_name="o
     selvars=c("patid","consid","parentobsid","probobsid","medcodeid","obsdate","value","numunitid",
               "numrangelow","numrangehigh")){
   obsfiles <- list.files(pddir,pattern="Obs.*txt$",full=T,recur=T)
-  dbi <- RSQLite::dbConnect(RSQLite::SQLite(),dbf)
+  dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
   nrec <- 0
-  if(!tab_name%in%RSQLite::dbListTables(dbi) || ow){
-    if(tab_name%in%RSQLite::dbListTables(dbi)){
-      RSQLite::dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))
+  if(!tab_name%in%duckdb::dbListTables(dbi) || ow){
+    if(tab_name%in%duckdb::dbListTables(dbi)){
+      duckdb::dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))
     }
     nrec <- lapply(obsfiles,function(fn){
       dat <- readr::read_tsv(fn,col_types=readr::cols(.default=readr::col_character())) %>%
         dplyr::select(dplyr::all_of(selvars)) %>%
         dplyr::mutate(obsdate = format(lubridate::dmy(obsdate)))
-      if(tab_name%in%RSQLite::dbListTables(dbi)){
+      if(tab_name%in%duckdb::dbListTables(dbi)){
         app=T
         ovr=F
       }else{
         app=F
         ovr=T
       }
-      RSQLite::dbWriteTable(dbi,tab_name,dat,overwrite=ovr,append=app)
+      duckdb::dbWriteTable(dbi,tab_name,dat,overwrite=ovr,append=app)
       nr <- dat %>% nrow()
       cat(paste0(basename(fn),": ",nr," records loaded\n"))
       rm(dat)
@@ -40,7 +40,7 @@ load_obs <- function(pddir,dbf,bpp=BiocParallel::bpparam(),ow=F,db=F,tab_name="o
       return(nr)
     })
   }
-  RSQLite::dbDisconnect(dbi)
+  duckdb::dbDisconnect(dbi)
   trec <- sum(unlist(nrec))
   return(cat(paste0(trec," records processed\n")))
 }

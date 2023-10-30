@@ -15,25 +15,25 @@ load_probs <- function(pddir,dbf,ow=F,db=F,tab_name="problems",
     selvars=c("patid","obsid","parentprobobsid","probenddate","expduration","lastrevdate",
               "parentprobrelid","probstatusid")){
   obsfiles <- list.files(pddir,pattern="Prob.*txt$",full=T,recur=T)
-  dbi <- RSQLite::dbConnect(RSQLite::SQLite(),dbf)
+  dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
   nrec <- 0
-  if(!tab_name%in%RSQLite::dbListTables(dbi) || ow){
-    if(tab_name%in%RSQLite::dbListTables(dbi)){
-      RSQLite::dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))
+  if(!tab_name%in%duckdb::dbListTables(dbi) || ow){
+    if(tab_name%in%duckdb::dbListTables(dbi)){
+      duckdb::dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))
     }
     nrec <- lapply(obsfiles,function(fn){
       dat <- readr::read_tsv(fn,col_types=readr::cols(.default=readr::col_character())) %>%
         dplyr::select(dplyr::all_of(selvars)) %>%
         dplyr::mutate(probeddate = format(lubridate::dmy(probenddate)),
                       lastrevdate = format(lubridate::dmy(lastrevdate)))
-      if(tab_name%in%RSQLite::dbListTables(dbi)){
+      if(tab_name%in%duckdb::dbListTables(dbi)){
         app=T
         ovr=F
       }else{
         app=F
         ovr=T
       }
-      RSQLite::dbWriteTable(dbi,tab_name,dat,overwrite=ovr,append=app)
+      duckdb::dbWriteTable(dbi,tab_name,dat,overwrite=ovr,append=app)
       nr <- dat %>% nrow()
       cat(paste0(basename(fn),": ",nr," records loaded\n"))
       rm(dat)
@@ -41,7 +41,7 @@ load_probs <- function(pddir,dbf,ow=F,db=F,tab_name="problems",
       return(nr)
     })
   }
-  RSQLite::dbDisconnect(dbi)
+  duckdb::dbDisconnect(dbi)
   trec <- sum(unlist(nrec))
   return(cat(paste0(trec," records processed\n")))
 }

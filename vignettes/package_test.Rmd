@@ -61,9 +61,9 @@ dir(odir)
 pddir <- file.path(ddir,"Patient")
 load_patients(pddir=pddir,dbf=dbif,ow=F)
 str_sql <- "SELECT patid FROM patients;"
-dbi <- RSQLite::dbConnect(RSQLite::SQLite(),dbif)
-patids <- RSQLite::dbGetQuery(dbi,str_sql) %>% as_tibble() %>% pull(patid)
-RSQLite::dbDisconnect(dbi)
+dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
+patids <- duckdb::dbGetQuery(dbi,str_sql) %>% as_tibble() %>% pull(patid)
+duckdb::dbDisconnect(dbi)
 ```
 
 ## Load Observations

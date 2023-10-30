@@ -13,20 +13,20 @@
 #' @export
 load_cprdfiles <- function(pddir,dbf,ow=T,db=F){
   cprdfiles <- list.files(pddir,pattern=".*txt",full=T)
-  dbi <- RSQLite::dbConnect(RSQLite::SQLite(),dbf)
+  dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
   names(cprdfiles) <- tolower(gsub("[.]txt","",basename(cprdfiles)))
   lapply(names(cprdfiles),function(fn){
-    if(!fn%in%RSQLite::dbListTables(dbi) || ow){
+    if(!fn%in%duckdb::dbListTables(dbi) || ow){
       dat <- readr::read_tsv(cprdfiles[[fn]],col_types=readr::cols(.default=readr::col_character())) %>%
         as_tibble()
       names(dat) <- tolower(names(dat))
-      RSQLite::dbWriteTable(dbi,fn,dat,overwrite=T)
+      duckdb::dbWriteTable(dbi,fn,dat,overwrite=T)
       nr <- dat %>% nrow()
       cat(paste0(basename(fn),": ",nr," records loaded\n"))
       rm(dat)
       gc()
     }
   })
-  RSQLite::dbDisconnect(dbi)
+  duckdb::dbDisconnect(dbi)
   return()
 }

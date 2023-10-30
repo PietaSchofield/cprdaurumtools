@@ -2,7 +2,7 @@
 % Please edit documentation in R/load_practice.R
 \name{load_practice}
 \alias{load_practice}
-\title{get the drugissue records and convert some fields to useful field types}
+\title{get observations batch}
 \usage{
 load_practice(
   pddir,

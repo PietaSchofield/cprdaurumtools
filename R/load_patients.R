@@ -6,13 +6,14 @@
 #' @param datadir the name of the data directory
 #'
 #' @export
-load_patients <- function(pddir,dbf,ow=F,db=F,tabname="patients",
+load_patients <- function(pdir,dbf,ow=F,db=F,tabname="patients",
    selvars1=c("patid","pracid","gender","yob","regstartdate","regenddate","emis_ddate","cprd_ddate")){
-  patfiles <- list.files(pddir,pattern="Patient",full=T,recur=T)
-  dbi <- RSQLite::dbConnect(RSQLite::SQLite(),dbf)
+  patfiles <- list.files(pdir,pattern="Patient",full=T,recur=T)
+  names(patfiles) <- gsub(paste0("(^",pdir,"/|/Patient/.*)"),"",patfiles)
+  dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
   ret <- 0
-  if(!tabname%in%RSQLite::dbListTables(dbi) || ow){
-    dat <- dplyr::bind_rows(lapply(patfiles,function(fn){
+  if(!tabname%in%duckdb::dbListTables(dbi) || ow){
+    dat <- plyr::ldply(lapply(patfiles,function(fn){
        readr::read_tsv(fn,col_type=readr::cols(.default=readr::col_character())) %>%
                      dplyr::select(all_of(selvars1)) %>%
                      dplyr::mutate(yob = as.integer(yob),
@@ -22,10 +23,10 @@ load_patients <- function(pddir,dbf,ow=F,db=F,tabname="patients",
                             cprd_ddate = format(lubridate::dmy(cprd_ddate)))
                      }))
     ret <- dat %>% nrow()
-    RSQLite::dbWriteTable(dbi,tabname,dat,overwrite=T,append=F)
+    duckdb::dbWriteTable(dbi,tabname,dat,overwrite=T,append=F)
     rm(dat)
     gc()
   }
-  RSQLite::dbDisconnect(dbi)
+  duckdb::dbDisconnect(dbi,shutdown=T)
   return(cat(paste0(ret," records processed\n")))
 }

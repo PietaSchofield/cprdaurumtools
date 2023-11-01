@@ -33,14 +33,14 @@ load_practice <- function(pddir,dbf,ow=F,db=F,tab_name="practices",
         ovr=T
       }
       duckdb::dbWriteTable(dbi,tab_name,dat,overwrite=ovr,append=app)
-      nr <- dat %>% nrow()
+      duckdb::dbDisconnect(dbi,shutdown=T)
+      nrec <- dat %>% nrow()
       cat(paste0(basename(fn),": ",nr," records loaded\n"))
       rm(dat)
       gc()
       return(nr)
     })
   }
-  duckdb::dbDisconnect(dbi)
   trec <- sum(unlist(nrec))
   return(cat(paste0(trec," records processed\n")))
 }

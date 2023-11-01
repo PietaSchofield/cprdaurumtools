@@ -36,7 +36,7 @@ load_referrals <- function(pddir,dbf,ow=F,db=F,tab_name="referrals"){
       return(nr)
     })
   }
-  duckdb::dbDisconnect(dbf,shutdown=T)
+  duckdb::dbDisconnect(dbi,shutdown=T)
   trec <- sum(unlist(nrec))
   return(cat(paste0(trec," records processed\n")))
 }

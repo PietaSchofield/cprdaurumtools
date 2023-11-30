@@ -9,8 +9,9 @@ load_table(
   dbf,
   ow = F,
   db = F,
-  tab_name = gsub("[.].*", "", basename(filename)),
-  selvars = NULL
+  tab_name = gsub("(^[0-9]*_|[.].*)", "", basename(filename)),
+  selvars = NULL,
+  delim = "\\t"
 )
 }
 \arguments{

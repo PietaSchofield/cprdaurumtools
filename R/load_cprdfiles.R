@@ -12,18 +12,27 @@
 #'
 #' @export
 load_cprdfiles <- function(pddir,dbf,ow=T,db=F){
+  if(F){
+    pddir <- cprddir
+    dbf <- dbfile
+    ow=F
+    db=F
+  }
   cprdfiles <- list.files(pddir,pattern=".*txt",full=T)
   names(cprdfiles) <- tolower(gsub("(^[0-9]*_|[.]txt)","",basename(cprdfiles)))
+  dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
+  tabs <- dbListTables(dbi)
+  dbDisconnect(dbi)
   lapply(names(cprdfiles),function(fn){
-    dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
-    if(!fn%in%duckdb::dbListTables(dbi) || ow){
+    if(!fn%in%tabs || ow){
+      dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
       dat <- readr::read_tsv(cprdfiles[[fn]],col_types=readr::cols(.default=readr::col_character())) %>%
         as_tibble()
       names(dat) <- tolower(names(dat))
       duckdb::dbWriteTable(dbi,fn,dat,overwrite=T)
+      duckdb::dbDisconnect(dbi)
       nr <- dat %>% nrow()
       cat(paste0(basename(fn),": ",nr," records loaded\n"))
-      duckdb::dbDisconnect(dbi)
       rm(dat)
       gc()
     }

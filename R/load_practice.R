@@ -13,34 +13,37 @@
 #' @export
 load_practice <- function(pddir,dbf,ow=F,db=F,tab_name="practices",
     selvars=c("pracid","lcd","uts","region")){
+  if(F){
+    pddir <- datadir
+    dbf <- dbfile
+    ow <- F 
+    db <- F
+    tab_name <- "practices"
+    selvars <- c("pracid","lcd","uts","region")
+  }
   obsfiles <- list.files(pddir,pattern="Prac.*txt$",full=T,recur=T)
   dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
+  tabs <- dbListTables(dbi)
+  dbDisconnect(dbi)
   nrec <- 0
-  if(!tab_name%in%duckdb::dbListTables(dbi) || ow){
-    if(tab_name%in%duckdb::dbListTables(dbi)){
+  if(!tab_name%in% tabs || ow){
+    if(tab_name%in% tabs){
+      dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
       duckdb::dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))
+      dbDisconnect(dbi)
     }
-    nrec <- lapply(obsfiles,function(fn){
-      dat <- readr::read_tsv(fn,col_types=readr::cols(.default=readr::col_character())) %>%
+    dat <- lapply(obsfiles,function(fn){
+      readr::read_tsv(fn,col_types=readr::cols(.default=readr::col_character())) %>%
         dplyr::select(dplyr::all_of(selvars)) %>%
         dplyr::mutate(lcd = format(lubridate::dmy(lcd)),
                       uts = format(lubridate::dmy(uts)))
-      if(tab_name%in%duckdb::dbListTables(dbi)){
-        app=T
-        ovr=F
-      }else{
-        app=F
-        ovr=T
-      }
-      duckdb::dbWriteTable(dbi,tab_name,dat,overwrite=ovr,append=app)
-      duckdb::dbDisconnect(dbi,shutdown=T)
-      nrec <- dat %>% nrow()
-      cat(paste0(basename(fn),": ",nr," records loaded\n"))
-      rm(dat)
-      gc()
-      return(nr)
-    })
+      }) %>% bind_rows() %>% unique()
+    dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
+    duckdb::dbWriteTable(dbi,tab_name,dat,append=T)
+    duckdb::dbDisconnect(dbi,shutdown=T)
+    nrec <- dat %>% nrow()
+    rm(dat)
+    gc()
   }
-  trec <- sum(unlist(nrec))
-  return(cat(paste0(trec," records processed\n")))
+  return(cat(paste0(nrec," records processed\n")))
 }

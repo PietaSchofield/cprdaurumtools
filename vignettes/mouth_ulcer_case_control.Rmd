@@ -1,0 +1,142 @@
+---
+title: "cprdaurumtools Package development"
+author: "Pieta"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Motivation
+
+## Setup
+
+### Paths
+
+```{r}
+require(duckdb)
+require(cprdaurumtools)
+require(tidyverse)
+homeDir <- Sys.getenv("HOME")
+projRoot <- file.path(homeDir,"Projects")
+projdir <- file.path(projRoot,"mung")
+dir.create(projdir,showW=F)
+datadir <- file.path(projdir,".data","case_control")
+cprddir <- file.path(projRoot,"refdata","aurum","202309_Lookups_CPRDAurum")
+dbfile <- file.path(datadir,"case_control.duckdb")
+```
+
+### Load Patients
+
+```{r}
+load_patients(pdir=datadir,dbf=dbfile,ow=F)
+str_sql <- "SELECT * FROM patients;"
+dbi <- dbConnect(duckdb::duckdb(),dbfile)
+patids <- dbGetQuery(dbi,str_sql) %>% as_tibble() 
+dbDisconnect(dbi)
+```
+
+## Load CPRD references
+
+```{r}
+load_cprdfiles(pddir=cprddir,dbf=dbfile,ow=F)
+dbi <- dbConnect(duckdb::duckdb(),dbfile)
+dbListTables(dbi)
+dbDisconnect(dbi)
+```
+
+## Load Consultations
+
+```{r}
+load_cons(pddir=datadir,dbf=dbfile,ow=F)
+```
+
+## Load Observations
+
+```{r}
+load_obs(pddir=datadir,dbf=dbfile,ow=F)
+```
+
+## Load Drug Issues
+
+```{r}
+load_drugissues(pddir=datadir,dbf=dbfile,ow=F)
+```
+
+## Load Practice
+
+```{r}
+load_practice(pddir=datadir,dbf=dbfile,ow=F)
+```
+
+## Load Staff
+
+```{r}
+load_staff(pddir=datadir,dbf=dbfile,ow=F)
+```
+
+## Load Problems
+
+```{r}
+load_probs(pddir=datadir,dbf=dbfile,ow=F)
+```
+
+## Load Referrals
+
+```{r}
+load_referrals(pddir=datadir,dbf=dbfile,ow=F)
+```
+
+## Load Medcodes Cases
+
+```{r}
+cohortcodes <- read_tsv(file.path(projdir,"refs","bis.txt"),
+                      col_type=cols(.default=col_character()))
+dbi <- dbConnect(duckdb::duckdb(),dbfile)
+dbWriteTable(dbi,"cohortcodes",cohortcodes,overwrite=T)
+dbDisconnect(dbi)
+
+symptomcodes<- read_csv(file.path(projdir,"refs","ulcer.csv"),
+                      col_type=cols(.default=col_character()))
+dbi <- dbConnect(duckdb::duckdb(),dbfile)
+dbWriteTable(dbi,"symptomcodes",symptomcodes,overwrite=T)
+dbDisconnect(dbi)
+```
+
+## Assign Patients To Cohorts
+
+Patients are cases or controls but there are several types of case and I have realised that the controls
+will be depleted for patients of the type in the other cases if I am not careful and while with SLE or
+Behcet's that might not make a big difference that might make a difference if depleted for IBD as there
+are many more IBD and in comparison to the SLE and Behect's numbers this might be significant
+
+```{r}
+ddb <- dbConnect(duckdb(),dbfile)
+tables <- dbListTables(ddb) %>% tibble()
+if('.id'%in%dbListFields(ddb,"patients")){
+  ssql <- str_c("ALTER TABLE patients RENAME COLUMN '.id' TO cohort")
+  dbExecute(ddb,ssql)
+}
+dbDisconnect(ddb)
+tables %>% plib::display_data(disp=T)
+```
+
+Get the cohorts
+
+```{r}
+cohorts <- get_cohort(dbfile)
+cohorts
+```
+
+
+
+

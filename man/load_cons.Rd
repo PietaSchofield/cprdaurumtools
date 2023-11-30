@@ -2,12 +2,11 @@
 % Please edit documentation in R/load_cons.R
 \name{load_cons}
 \alias{load_cons}
-\title{get the drugissue records and convert some fields to useful field types}
+\title{get observations batch}
 \usage{
 load_cons(
   pddir,
   dbf,
-  bpp = BiocParallel::bpparam(),
   ow = F,
   db = F,
   tab_name = "consultations",
@@ -16,16 +15,16 @@ load_cons(
 )
 }
 \arguments{
-\item{bpp}{BiocParallal Multicore Parameters
-
-
-Pass a table of covariate codes and generate covariates table}
-
 \item{bdir}{the name of the batch subdirectory}
 
 \item{odir}{the name of the output directory}
 
 \item{olist}{the list of observation codes}
+
+\item{bpp}{BiocParallal Multicore Parameters
+
+
+Pass a table of covariate codes and generate covariates table}
 }
 \description{
 get the drugissue records and convert some fields to useful field types

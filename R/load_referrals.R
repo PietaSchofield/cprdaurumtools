@@ -12,23 +12,29 @@
 #' @import magrittr
 #' @export
 load_referrals <- function(pddir,dbf,ow=F,db=F,tab_name="referrals"){
+  if(F){
+    pddir <- datadir
+    dbf <- dbfile
+    ow <- F
+    db <- F
+    tab_name <- "referrals"
+  }
   obsfiles <- list.files(pddir,pattern="Refer.*txt$",full=T,recur=T)
   dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
+  tabs <- dbListTables(dbi)
+  dbDisconnect(dbi)
   nrec <- 0
-  if(!tab_name%in%duckdb::dbListTables(dbi) || ow){
-    if(tab_name%in%duckdb::dbListTables(dbi)){
+  if(!tab_name%in% tabs || ow){
+    if(tab_name%in% tabs){
+      dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
       duckdb::dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))
+      dbDisconnect(dbi)
     }
     nrec <- lapply(obsfiles,function(fn){
       dat <- readr::read_tsv(fn,col_types=readr::cols(.default=readr::col_character()))
-      if(tab_name%in%duckdb::dbListTables(dbi)){
-        app=T
-        ovr=F
-      }else{
-        app=F
-        ovr=T
-      }
-      duckdb::dbWriteTable(dbi,tab_name,dat,overwrite=ovr,append=app)
+      dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
+      duckdb::dbWriteTable(dbi,tab_name,dat,append=T)
+      dbDisconnect(dbi)
       nr <- dat %>% nrow()
       cat(paste0(basename(fn),": ",nr," records loaded\n"))
       rm(dat)
@@ -36,7 +42,6 @@ load_referrals <- function(pddir,dbf,ow=F,db=F,tab_name="referrals"){
       return(nr)
     })
   }
-  duckdb::dbDisconnect(dbi,shutdown=T)
   trec <- sum(unlist(nrec))
   return(cat(paste0(trec," records processed\n")))
 }

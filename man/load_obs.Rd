@@ -7,7 +7,6 @@
 load_obs(
   pddir,
   dbf,
-  bpp = BiocParallel::bpparam(),
   ow = F,
   db = F,
   tab_name = "observations",
@@ -16,16 +15,16 @@ load_obs(
 )
 }
 \arguments{
-\item{bpp}{BiocParallal Multicore Parameters
-
-
-Pass a table of covariate codes and generate covariates table}
-
 \item{bdir}{the name of the batch subdirectory}
 
 \item{odir}{the name of the output directory}
 
 \item{olist}{the list of observation codes}
+
+\item{bpp}{BiocParallal Multicore Parameters
+
+
+Pass a table of covariate codes and generate covariates table}
 }
 \description{
 get the drugissue records and convert some fields to useful field types

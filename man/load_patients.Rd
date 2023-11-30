@@ -5,7 +5,7 @@
 \title{load patients}
 \usage{
 load_patients(
-  pddir,
+  pdir,
   dbf,
   ow = F,
   db = F,

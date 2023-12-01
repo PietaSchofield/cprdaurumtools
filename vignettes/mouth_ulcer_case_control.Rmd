@@ -168,17 +168,26 @@ duckdb::dbDisconnect(ddb,shutdown=T)
 ### Individual Ulcer Code List 
 
 ```{r}
-res <- run_test(dbf,cohort='sle',symptomtab="symptomcodes",cortype="bon")
+coh <- 'sle'
+res <- run_test(dbf,cohort=coh,symptomtab="symptomcodes",cortype="bon")
+if(nrow(res)>0) res %>% kable(caption="SLE patients")
+res <- run_test(dbf,cohort=coh,symptomtab="symptomcodes",groupat="snomedctconceptid")
 if(nrow(res)>0) res %>% kable(caption="SLE patients")
 ```
 
 ```{r}
-res <- run_test(dbf,cohort='ibd',symptomtab="symptomcodes")
+coh <- 'ibd'
+res <- run_test(dbf,cohort=coh,symptomtab="symptomcodes")
+if(nrow(res)>0) res %>% kable(caption="IBD patients")
+res <- run_test(dbf,cohort=coh,symptomtab="symptomcodes",groupat="snomedctconceptid")
 if(nrow(res)>0) res %>% kable(caption="IBD patients")
 ```
 
 ```{r}
-res <- run_test(dbf,cohort='behcets',symptomtab="symptomcodes") 
+coh <- 'behcets'
+res <- run_test(dbf,cohort=coh,symptomtab="symptomcodes") 
+if(nrow(res)>0) res %>% kable(caption="Behcet's patients")
+res <- run_test(dbf,cohort=coh,symptomtab="symptomcodes",groupat="snomedctconceptid")
 if(nrow(res)>0) res %>% kable(caption="Behcet's patients")
 ```
 

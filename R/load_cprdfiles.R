@@ -30,7 +30,7 @@ load_cprdfiles <- function(pddir,dbf,ow=T,db=F){
         as_tibble()
       names(dat) <- tolower(names(dat))
       duckdb::dbWriteTable(dbi,fn,dat,overwrite=T)
-      duckdb::dbDisconnect(dbi)
+      duckdb::dbDisconnect(dbi,shutdown=T)
       nr <- dat %>% nrow()
       cat(paste0(basename(fn),": ",nr," records loaded\n"))
       rm(dat)

@@ -41,10 +41,10 @@ get_cohort <- function(dbf,codetable="cohortcodes",codetype="%",minage=0,maxage=
     YEAR(CAST(i.indexdate AS DATE)) - p.yob <= ",maxage," AND
     YEAR(CAST(i.indexdate AS DATE)) - p.yob >= ",minage,";")
 
-  dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
+  dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf,read_only=T)
   res <- dbGetQuery(dbi,ssql) %>% tibble() %>% 
     select(all_of(c("patid","cohort","codetype",indexfield))) %>%
     pivot_wider(names_from="codetype",values_from=all_of(indexfield),values_fill=vfill)
-  dbDisconnect(dbi)
+  dbDisconnect(dbi,shutdown=T)
   return(res)
 }

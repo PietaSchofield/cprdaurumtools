@@ -1,10 +1,12 @@
 ---
-title: "cprdaurumtools Package development"
+title: CPRD Mouth Ulcer Case Control Study
 author: "Pieta"
 date: "`r Sys.Date()`"
-output: rmarkdown::html_vignette
+output: 
+  rmarkdown::html_vignette:
+    code_folding: hide
 vignette: >
-  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteIndexEntry{CPRD Mouth Ulcer Case Control Study}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -23,6 +25,8 @@ knitr::opts_chunk$set(
 ### Paths
 
 ```{r}
+require(kableExtra)
+require(conflicted)
 require(duckdb)
 require(cprdaurumtools)
 require(tidyverse)
@@ -33,83 +37,47 @@ dir.create(projdir,showW=F)
 datadir <- file.path(projdir,".data","case_control")
 cprddir <- file.path(projRoot,"refdata","aurum","202309_Lookups_CPRDAurum")
 dbfile <- file.path(datadir,"case_control.duckdb")
+#unlink(dbfile)
+options(warn=F)
 ```
 
-### Load Patients
+### Load Files
 
 ```{r}
 load_patients(pdir=datadir,dbf=dbfile,ow=F)
-str_sql <- "SELECT * FROM patients;"
-dbi <- dbConnect(duckdb::duckdb(),dbfile)
-patids <- dbGetQuery(dbi,str_sql) %>% as_tibble() 
-dbDisconnect(dbi)
-```
-
-## Load CPRD references
-
-```{r}
 load_cprdfiles(pddir=cprddir,dbf=dbfile,ow=F)
-dbi <- dbConnect(duckdb::duckdb(),dbfile)
-dbListTables(dbi)
-dbDisconnect(dbi)
-```
-
-## Load Consultations
-
-```{r}
 load_cons(pddir=datadir,dbf=dbfile,ow=F)
-```
-
-## Load Observations
-
-```{r}
 load_obs(pddir=datadir,dbf=dbfile,ow=F)
-```
-
-## Load Drug Issues
-
-```{r}
 load_drugissues(pddir=datadir,dbf=dbfile,ow=F)
-```
-
-## Load Practice
-
-```{r}
 load_practice(pddir=datadir,dbf=dbfile,ow=F)
-```
-
-## Load Staff
-
-```{r}
 load_staff(pddir=datadir,dbf=dbfile,ow=F)
-```
-
-## Load Problems
-
-```{r}
 load_probs(pddir=datadir,dbf=dbfile,ow=F)
-```
-
-## Load Referrals
-
-```{r}
 load_referrals(pddir=datadir,dbf=dbfile,ow=F)
 ```
 
-## Load Medcodes Cases
+## Load Medcodes 
 
-```{r}
+### Cases
+
+```{r, results="asis", comment=NA}
 cohortcodes <- read_tsv(file.path(projdir,"refs","bis.txt"),
                       col_type=cols(.default=col_character()))
-dbi <- dbConnect(duckdb::duckdb(),dbfile)
+dbi <- duckdb::dbConnect(duckdb::duckdb(),dbfile)
 dbWriteTable(dbi,"cohortcodes",cohortcodes,overwrite=T)
-dbDisconnect(dbi)
+duckdb::dbDisconnect(dbi)
 
+```
+
+### Symptoms
+
+```{r}
 symptomcodes<- read_csv(file.path(projdir,"refs","ulcer.csv"),
                       col_type=cols(.default=col_character()))
-dbi <- dbConnect(duckdb::duckdb(),dbfile)
+names(symptomcodes) <- tolower(names(symptomcodes))
+
+dbi <- duckdb::dbConnect(duckdb::duckdb(),dbfile)
 dbWriteTable(dbi,"symptomcodes",symptomcodes,overwrite=T)
-dbDisconnect(dbi)
+duckdb::dbDisconnect(dbi)
 ```
 
 ## Assign Patients To Cohorts
@@ -119,24 +87,142 @@ will be depleted for patients of the type in the other cases if I am not careful
 Behcet's that might not make a big difference that might make a difference if depleted for IBD as there
 are many more IBD and in comparison to the SLE and Behect's numbers this might be significant
 
-```{r}
-ddb <- dbConnect(duckdb(),dbfile)
-tables <- dbListTables(ddb) %>% tibble()
+```{r, results="asis", comment=NA}
+ddb <- duckdb::dbConnect(duckdb(),dbfile)
 if('.id'%in%dbListFields(ddb,"patients")){
   ssql <- str_c("ALTER TABLE patients RENAME COLUMN '.id' TO cohort")
   dbExecute(ddb,ssql)
 }
-dbDisconnect(ddb)
-tables %>% plib::display_data(disp=T)
+duckdb::dbDisconnect(ddb,shutdown=T)
 ```
 
-Get the cohorts
+Get the cohorts numbers
 
 ```{r}
-cohorts <- get_cohort(dbfile)
-cohorts
+cohorts <- get_cohort(dbfile) %>% select(-cohort)
+indexdates <- get_cohort(dbfile,indexfield="indexdate",vfill=NA)
+indexages <- get_cohort(dbfile,indexfield="indexage",vfill=NA)
+indexagesum <- indexages %>% pivot_longer(-c(patid,cohort),names_to="codeclass",values_to="indexage") %>%
+  dplyr::mutate(hit=ifelse(is.na(indexage),0,1)) %>%
+  group_by(cohort,codeclass) %>%
+  dplyr::summarise(cases=sum(hit),meanage=mean(indexage,na.rm=T),.groups="drop")
+idxagesum <- indexagesum %>% select(codeclass,meanage)
+indexagesum %>% kable()
+```
+
+### Spiking the Controls
+
+There are a total of about 22 million eligible patients born in the range of dates the cases and controls
+are sampled from. Because we have sampled about 100 thousand patients from this range that means we would
+probably only expect 1 SLE case in the controls for Behcet's and IBD, no Behcet's in the controls for SLE
+and IBD but maybe 50 IBD cases in the controls for SLE and Behcet's, but because the controls were
+depleted for all three they are not in just the control sample however to include all the SLE cases in
+the controls for either IBD or Behcet's case vastly over enriches the controls for SLE. This is
+especially true with IBD, to include them is to vastly over enrich the controls for IBD cases but to
+exclude them is also possibly depleting the controls too much.
+
+There for we need to add about 50 random IBD cases to the controls for SLE and Behcets
+
+```{r}
+# select random IBD cases for controls
+ibdconts <- cohorts %>% dplyr::filter(ibd>0 & sle<1 & behcets<1) %>% pull(patid) %>% sample(50)
+pats <- get_patients(dbfile,fields=c("patid")) %>% left_join(cohorts, by=c("patid")) %>% tibble()
+pats[is.na(pats)] <- 0
+patscohort <- pats %>%  
+  dplyr::mutate(
+         ibdcohort=ifelse(ibd>0,"case",ifelse(sle<1 & behcets <1, "cont","drop")),
+         slecohort=ifelse(sle>0,"case",
+                          ifelse((ibd<1 & behcets <1),"cont",
+                                ifelse(patid %in% ibdconts,"cont","drop"))),
+         behcetscohort=ifelse(behcets>0,"case",
+                          ifelse((ibd<1 & sle <1),"cont",
+                                ifelse(patid %in% ibdconts,"cont","drop")))) %>%
+  select(patid,ibdcohort,slecohort,behcetscohort) %>% 
+  dplyr::rename(ibd=ibdcohort,sle=slecohort,behcets=behcetscohort)
+  
+patscohort %>% pivot_longer(-patid,names_to="cohort",values_to="cc") %>%
+  group_by(cohort,cc) %>% dplyr::summarise(n=n(),.groups="drop") %>% 
+  pivot_wider(names_from="cc",values_from="n",values_fill=0) %>% 
+  dplyr::mutate(total=case+cont) %>% kable()
+```
+
+### Generate Pseudo Index Ages
+
+```{r}
+indexageslong <- indexages %>% select(-cohort) %>% 
+  pivot_longer(-patid,names_to="cohort",values_to="indexage") %>% na.omit()
+indexagetab <- patscohort %>% pivot_longer(-patid,names_to='cohort',values_to='status') %>%
+  dplyr::filter(status!='drop') %>% inner_join(idxagesum, by=c("cohort"="codeclass")) %>%
+  left_join(indexageslong,by=c('patid','cohort')) %>%
+  dplyr::mutate(indexage=ifelse(is.na(indexage),meanage,indexage)) %>%
+  select(patid,cohort,status,indexage)
+ddb <- duckdb::dbConnect(duckdb(),dbfile)
+if('cohorts'%in%dbListTables(ddb)){
+  dbWriteTable(ddb,'cohorts',indexagetab,over=T)
+}
+duckdb::dbDisconnect(ddb,shutdown=T)
+```
+
+## Results
+
+### Individual Ulcer Code List 
+
+```{r}
+res <- run_test(dbf,cohort='sle',symptomtab="symptomcodes",cortype="bon")
+if(nrow(res)>0) res %>% kable(caption="SLE patients")
+```
+
+```{r}
+res <- run_test(dbf,cohort='ibd',symptomtab="symptomcodes")
+if(nrow(res)>0) res %>% kable(caption="IBD patients")
+```
+
+```{r}
+res <- run_test(dbf,cohort='behcets',symptomtab="symptomcodes") 
+if(nrow(res)>0) res %>% kable(caption="Behcet's patients")
+```
+
+### Expanded Symptoms
+
+
+
+# Appendix
+
+## Codes
+
+### SLE
+
+```{r}
+cohortcodes %>% dplyr::filter(codetype=='sle') %>% select(medcodeid,term) %>% 
+  dplyr::arrange(term) %>% kbl()
+```
+
+### Behcet's
+
+```{r}
+cohortcodes %>% dplyr::filter(codetype=='behcets') %>% select(medcodeid,term) %>%
+  dplyr::arrange(term) %>% kbl()
+```
+
+### IBD
+
+```{r}
+cohortcodes %>% dplyr::filter(codetype=='ibd') %>% select(medcodeid,term) %>% 
+  dplyr::arrange(term) %>% kbl()
+```
+
+### Ulcers
+
+```{r}
+symptomcodes %>% select(medcodeid,term) %>% 
+  dplyr::arrange(term) %>% kbl()
 ```
 
 
-
-
+```{r echo=F,eval=F}
+homeDir <- Sys.getenv("HOME")
+inputpath <- file.path(homeDir,"GitLab","cprdaurumtools","vignettes")
+inputFile <- file.path(inputpath,"mouth_ulcer_case_control.Rmd")
+noteDir <- file.path(homeDir,"Notes","uol","mung")
+rmarkdown::render(inputFile,encoding=encoding,output_dir=noteDir)
+```

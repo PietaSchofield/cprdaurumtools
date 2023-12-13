@@ -41,7 +41,7 @@ dir.create(projdir,showW=F)
 datadir <- file.path(projdir,".data","case_control")
 cprddir <- file.path(projRoot,"refdata","aurum","202309_Lookups_CPRDAurum")
 dbfile <- file.path(datadir,"case_control.duckdb")
-.disp <- F
+.disp <- T
 options(warn=F)
 ```
 
@@ -103,7 +103,7 @@ duckdb::dbDisconnect(ddb,shutdown=T)
 Get the cohorts numbers
 
 ```{r}
-cohorts <- get_cohort(dbfile) %>% select(-cohort)
+cohorts <- cprdaurumtools::get_cohort(dbfile) %>% select(-cohort)
 indexdates <- get_cohort(dbfile,indexfield="indexdate",vfill=NA)
 indexages <- get_cohort(dbfile,indexfield="indexage",vfill=NA)
 indexagesum <- indexages %>% pivot_longer(-c(patid,cohort),names_to="codeclass",values_to="indexage") %>%
@@ -330,6 +330,154 @@ indexages %>% dplyr::filter(cohort=="cases",codetype==coh) %>% pull(iage) %>%
   ecdf() %>% plot(xlab="age",ylab="CDF",main=paste0("CDF of ",coh," cases"))
 indexages %>% dplyr::filter(cohort=="conts",codetype==coh) %>% pull(iage) %>%
   ecdf() %>% plot(xlab="age",ylab="CDF",main=paste0("CDF of ",coh," controls"))
+```
+
+But now with this new fullindexage table I need to respike the controls. Probably remove all controls
+with SLE or Behcet's and add back 50 or so IBD controls for SLE and Behcet's
+
+```{r}
+spike_cohorts <- function(dbf,tabname="studycohorts"){
+  cohorts <- get_indexdist(dbf=dbfile) %>% select(patid,cohort,codetype) %>% 
+  pivot_wider(names_from="codetype",values_from="cohort") %>%
+  mutate(ibd=ifelse(ibd=="cases",ibd,ifelse(sle=="cases" | behcets=="cases","drop",ibd)),
+         sle=ifelse(sle=="cases",sle,ifelse(behcets=="cases" | ibd=="cases","drop",sle)),
+         behcets=ifelse(behcets=="cases",behcets,ifelse(sle=="cases" | ibd=="cases","drop",behcets)))
+
+  ibdspikes <- cohorts %>% dplyr::filter(ibd=="cases"& sle=="drop" & behcets=="drop") %>% pull(patid) %>%
+  sample(50)
+
+  cohorts <- cohorts %>% mutate(sle=ifelse(patid %in% ibdspikes,"conts",sle),
+                     behcets=ifelse(patid %in% ibdspikes,"conts",behcets)) %>%
+                     pivot_longer(-patid,names_to="study",values_to="cohort") %>%
+                     dplyr::filter(cohort!="drop")
+  ddb <- duckdb::dbConnect(duckdb::duckdb(),dbf)
+  dbWriteTable(ddb,tabname,cohorts,overwrite=T)
+  dbDisconnect(ddb,shutdown=T)
+}
+if(F){
+  spike_cohorts(dbfile)
+}
+```
+
+### Individual Ulcer Code List 
+
+```{r}
+coh <- 'sle'
+res <- run_test2(dbf,cohort=coh,symptomtab="symptomcodes",cortype="bon")
+if(nrow(res)>0) res %>%
+  select(term,snomedctconceptid,cases,conts,ratio,padj) %>%
+  display_data(disp=.disp,caption="SLE patients")
+res <- run_test2(dbf,cohort=coh,symptomtab="symptomcodes",groupat="snomedctconceptid")
+if(nrow(res)>0) res %>%
+  select(term,snomedctconceptid,cases,conts,ratio,padj) %>%
+  display_data(disp=.disp,caption="SLE patients")
+```
+
+```{r}
+coh <- 'ibd'
+res <- run_test2(dbf,cohort=coh,symptomtab="symptomcodes")
+if(nrow(res)>0) res %>%
+  select(term,snomedctconceptid,cases,conts,ratio,padj) %>%
+  display_data(disp=.disp,caption="IBD patients")
+res <- run_test2(dbf,cohort=coh,symptomtab="symptomcodes",groupat="snomedctconceptid")
+if(nrow(res)>0) res %>% 
+  select(term,snomedctconceptid,cases,conts,ratio,padj) %>%
+  display_data(disp=.disp,caption="IBD patients")
+```
+
+```{r}
+coh <- 'behcets'
+res <- run_test2(dbf,cohort=coh,symptomtab="symptomcodes") 
+if(nrow(res)>0) res %>%
+  select(term,snomedctconceptid,cases,conts,ratio,padj) %>%
+  display_data(disp=.disp,caption="Behcet's patients")
+res <- run_test2(dbf,cohort=coh,symptomtab="symptomcodes",groupat="snomedctconceptid")
+if(nrow(res)>0) res %>% 
+  select(term,snomedctconceptid,cases,conts,ratio,padj) %>%
+  display_data(disp=.disp,caption="Behcet's patients")
+```
+
+
+### PPIE Symptoms
+
+Look at the expanded codes that came from the PPIE
+
+```{r}
+symptomtable <- "ppiesymptomslist"
+coh <- 'sle'
+res <- run_test2(dbf,cohort=coh,symptomtab=symptomtable,cortype="bon")
+if(nrow(res)>0) res %>%
+  select(term,snomedctconceptid,cases,conts,ratio,padj) %>%
+  display_data(disp=.disp,caption="SLE patients")
+res <- run_test2(dbf,cohort=coh,symptomtab=symptomtable,groupat="snomedctconceptid")
+if(nrow(res)>0) res %>%
+  select(term,snomedctconceptid,cases,conts,ratio,padj) %>%
+  display_data(disp=.disp,caption="SLE patients")
+```
+
+```{r}
+coh <- 'ibd'
+res <- run_test2(dbf,cohort=coh,symptomtab=symptomtable)
+if(nrow(res)>0) res %>% 
+  select(term,snomedctconceptid,cases,conts,ratio,padj) %>%
+  display_data(disp=.disp,caption="IBD patients")
+res <- run_test2(dbf,cohort=coh,symptomtab=symptomtable,groupat="snomedctconceptid")
+if(nrow(res)>0) res %>% 
+  select(term,snomedctconceptid,cases,conts,ratio,padj) %>%
+  display_data(disp=.disp,caption="IBD patients")
+```
+
+```{r}
+coh <- 'behcets'
+res <- run_test2(dbf,cohort=coh,symptomtab=symptomtable) 
+if(nrow(res)>0) res %>% 
+  select(term,snomedctconceptid,cases,conts,ratio,padj) %>%
+  display_data(disp=.disp,caption="Behcet's patients")
+res <- run_test2(dbf,cohort=coh,symptomtab=symptomtable,groupat="snomedctconceptid")
+if(nrow(res)>0) res %>% 
+  select(term,snomedctconceptid,cases,conts,ratio,padj) %>%
+  display_data(disp=.disp,caption="Behcet's patients")
+```
+
+### Expanded Symptoms
+
+Look at the expanded codes that came from the PPIE
+
+```{r}
+symptomtable <- "expandedsymptomlist"
+coh <- 'sle'
+res <- run_test2(dbf,cohort=coh,symptomtab=symptomtable,cortype="bon")
+if(nrow(res)>0) res %>% 
+  select(term,snomedctconceptid,cases,conts,ratio,padj) %>%
+  display_data(disp=.disp,caption="SLE patients")
+res <- run_test2(dbf,cohort=coh,symptomtab=symptomtable,groupat="snomedctconceptid")
+if(nrow(res)>0) res %>%
+  select(term,snomedctconceptid,cases,conts,ratio,padj) %>%
+  display_data(disp=.disp,caption="SLE patients")
+```
+
+```{r}
+coh <- 'ibd'
+res <- run_test2(dbf,cohort=coh,symptomtab=symptomtable)
+if(nrow(res)>0) res %>%
+  select(term,snomedctconceptid,cases,conts,ratio,padj) %>%
+  display_data(disp=.disp,caption="IBD patients")
+res <- run_test2(dbf,cohort=coh,symptomtab=symptomtable,groupat="snomedctconceptid")
+if(nrow(res)>0) res %>%
+  select(term,snomedctconceptid,cases,conts,ratio,padj) %>%
+  display_data(disp=.disp,caption="IBD patients")
+```
+
+```{r}
+coh <- 'behcets'
+res <- run_test2(dbf,cohort=coh,symptomtab=symptomtable) 
+if(nrow(res)>0) res %>% 
+  select(term,snomedctconceptid,cases,conts,ratio,padj) %>%
+  display_data(disp=.disp,caption="Behcet's patients")
+res <- run_test2(dbf,cohort=coh,symptomtab=symptomtable,groupat="snomedctconceptid")
+if(nrow(res)>0) res %>% 
+  select(term,snomedctconceptid,cases,conts,ratio,padj) %>%
+  display_data(disp=.disp,caption="Behcet's patients")
 ```
 
 # Appendix

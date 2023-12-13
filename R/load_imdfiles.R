@@ -13,9 +13,9 @@
 #' @export
 load_imdfiles <- function(pddir,dbf,ow=T,db=F,tad,pats){
   imdfiles <- list.files(pddir,pattern=".*txt",full=T)
-  dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
-  names(imdfiles) <- tolower(gsub(paste0("_",tad,"[.]txt"),"",basename(imdfiles)))
+  names(imdfiles) <- tolower(gsub(paste0("_",tad,".*[.]txt"),"",basename(imdfiles)))
   lapply(names(imdfiles),function(fn){
+    dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
     if(!fn%in%duckdb::dbListTables(dbi) || ow){
       dat <- readr::read_tsv(imdfiles[[fn]],col_types=readr::cols(.default=readr::col_character())) %>%
         as_tibble() %>% dplyr::filter(patid%in%pats)
@@ -23,10 +23,12 @@ load_imdfiles <- function(pddir,dbf,ow=T,db=F,tad,pats){
       duckdb::dbWriteTable(dbi,fn,dat,overwrite=T)
       nr <- dat %>% nrow()
       cat(paste0(basename(fn),": ",nr," records loaded\n"))
+      duckdb::dbDisconnect(dbi)
       rm(dat)
       gc()
+    }else{
+      duckdb::dbDisconnect(dbi)
     }
   })
-  duckdb::dbDisconnect(dbi)
   return()
 }

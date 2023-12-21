@@ -11,7 +11,8 @@ run_test2(
   cortype = "bon",
   ratioval = 1,
   pcut = 0.05,
-  groupat = "medcodeid"
+  groupat = "medcodeid",
+  db = F
 )
 }
 \description{

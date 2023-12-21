@@ -65,8 +65,8 @@ run_test <- function(dbf,cohort=NULL,symptomtab=NULL,cortype='bon',ratioval=1,pc
 
   analset <- obsfreq %>% inner_join(cohtots,by=c("cohort"="cohort_total"))
   resset <- apply(analset,1,test_medcode) %>% lapply(unlist) %>% plyr::ldply() %>%
-   mutate(ratio=as.numeric(ratio)) 
-  resset$padj <- p.adjust(resset$pvalue, cortype, n=nrow(resset))
+   mutate(ratio=signif(as.numeric(ratio),3))
+  resset$padj <- round(p.adjust(resset$pvalue, cortype, n=nrow(resset)),5)
   sigres <- resset %>% dplyr::filter(ratio>=ratioval & padj<=pcut) %>% arrange(padj)
   
   strsql <- str_c("

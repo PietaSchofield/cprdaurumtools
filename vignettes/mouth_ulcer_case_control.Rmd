@@ -67,9 +67,21 @@ load_referrals(pddir=datadir,dbf=dbfile,ow=F)
 cohortcodes <- read_tsv(file.path(projdir,"refs","bis.txt"),
                       col_type=cols(.default=col_character()))
 dbi <- duckdb::dbConnect(duckdb::duckdb(),dbfile)
+if(F){
+  dbListTables(dbi)
+  ppiesymptomcodes <- dbGetQuery(dbi,
+    str <- c("SELECT e.medcodeid,e.snomedctconceptid,e.emiscodecategoryid, e.term
+             FROM emismedicaldictionary AS e 
+             INNER JOIN ppiesymptomslist AS p
+             ON p.medcodeid=e.medcodeid")) %>% tibble() %>%
+  group_by(medcodeid,snomedctconceptid,emiscodecategoryid) %>% 
+  summarise(term=first(term),.groups="drop") %>%
+  dplyr::filter(as.numeric(emiscodecategoryid)>=11 & as.numeric(emiscodecategoryid)<33) %>%
+  arrange(emiscodecategoryid)
+  write_csv(file=file.path(projdir,"refs","ppiesymptoms.csv"))
+}
 dbWriteTable(dbi,"cohortcodes",cohortcodes,overwrite=T)
 duckdb::dbDisconnect(dbi)
-
 ```
 
 ### Symptoms
@@ -516,11 +528,21 @@ symptomcodes %>% select(medcodeid,term) %>%
   dplyr::arrange(term) %>% kableExtra::kbl()
 ```
 
+# Other approaches
+
+## Counts of Codes
+
+```{r}
+
+```
+
+
 
 ```{r echo=F,eval=F}
 homeDir <- Sys.getenv("HOME")
 inputpath <- file.path(homeDir,"GitLab","cprdaurumtools","vignettes")
 inputFile <- file.path(inputpath,"mouth_ulcer_case_control.Rmd")
 noteDir <- file.path(homeDir,"Notes","uol","mung")
-rmarkdown::render(inputFile,encoding=encoding,output_dir=noteDir)
+system2("firefox",
+        args=rmarkdown::render(inputFile,encoding=encoding,output_dir=noteDir))
 ```

@@ -14,7 +14,7 @@ gen_indexdist <- function(dbf,idxtab="fullindexages",pats="patients",ctype="%",s
   set.seed(seed)
   indexages <- get_cohort(dbf,indexfield="indexage",vfill=NA,codetype=ctype) %>%
     pivot_longer(-c(patid,cohort),names_to="codetype",values_to="age")
-  patients <- get_patients(dbf,fields=c("patid"))
+  patients <- get_patients(dbf,fields=c("patid","yob"))
   cts <- indexages %>% pull(codetype) %>% unique()
   names(cts) <- cts
   ct <- cts[1]
@@ -25,8 +25,13 @@ gen_indexdist <- function(dbf,idxtab="fullindexages",pats="patients",ctype="%",s
       mutate(cohort=ifelse(is.na(cohort),"conts",cohort),
              codetype=ct)
     ret$page <- sample(dat,size=nrow(ret),replace=T) 
-    ret %>% mutate(iage=ifelse(is.na(age),page,age)) %>% select(patid,cohort,codetype,iage) %>% tibble()
+    ret %>% mutate(iage=ifelse(is.na(age),page,age)) %>% 
+      select(patid,yob,cohort,codetype,iage) %>% tibble()
   }) %>% bind_rows()
+  indexdates <- get_cohort(dbf,indexfield="indexdate",vfill=NA,codetype=ctype) %>%
+    pivot_longer(-c(patid,cohort),names_to="codetype",values_to="indexdate")
+  res <- res %>% left_join(indexdates,by=c("patid"="patid","cohort"="cohort","codetype"="codetype")) %>%
+    mutate(indexdate=ifelse(is.na(indexdate),paste0(yob+iage,"-07-01"),indexdate))
   ddb <- duckdb::dbConnect(duckdb::duckdb(),dbf)
   dbWriteTable(ddb,idxtab,res,overwrite=T)
   dbDisconnect(ddb,shutdown=T)

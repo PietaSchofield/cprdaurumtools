@@ -2,7 +2,7 @@
 #'
 #' @export 
 get_cohort <- function(dbf,codetable="cohortcodes",codetype="%",minage=0,maxage=16,
-                       indexfield="case",vfill=0){
+                       indexfield="case",vfill=0,summarise=T){
   if(F){
     dbf <- dbfile
     codetable <- "cohortcodes"
@@ -42,9 +42,11 @@ get_cohort <- function(dbf,codetable="cohortcodes",codetype="%",minage=0,maxage=
     YEAR(CAST(i.indexdate AS DATE)) - p.yob >= ",minage,";")
 
   dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf,read_only=T)
-  res <- dbGetQuery(dbi,ssql) %>% tibble() %>% 
-    select(all_of(c("patid","cohort","codetype",indexfield))) %>%
+  res <- dbGetQuery(dbi,ssql) %>% tibble() 
+  if(summarise){
+    res <- res %>% select(all_of(c("patid","cohort","codetype",indexfield))) %>%
     pivot_wider(names_from="codetype",values_from=all_of(indexfield),values_fill=vfill)
+  }
   dbDisconnect(dbi,shutdown=T)
   return(res)
 }

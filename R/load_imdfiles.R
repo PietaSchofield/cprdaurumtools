@@ -12,7 +12,14 @@
 #'
 #' @export
 load_imdfiles <- function(pddir,dbf,ow=T,db=F,tad,pats){
-  imdfiles <- list.files(pddir,pattern=".*txt",full=T)
+  if(db){
+    pddir <- idir
+    tad <- "21_001631"
+    dbf <- "/home/pietas/Projects/t2dd/.data/t2dd_prep.duckdb" 
+    ow <- T
+    pats <- patids
+  }
+  imdfiles <- list.files(pddir,pattern="_imd_.*txt",full=T)
   names(imdfiles) <- tolower(gsub(paste0("_",tad,".*[.]txt"),"",basename(imdfiles)))
   lapply(names(imdfiles),function(fn){
     dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)

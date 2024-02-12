@@ -2,7 +2,7 @@
 #'
 #' @export
 run_test2 <- function(dbf,cohort=NULL,symptomtab=NULL,cortype='bon',ratioval=1,pcut=0.05,
-                     groupat="medcodeid",db=F){
+                     groupat="medcodeid",db=F,exportfile=NULL){
   if(F){
     dbf <- dbfile
     cohort <- 'behcets'
@@ -89,7 +89,9 @@ run_test2 <- function(dbf,cohort=NULL,symptomtab=NULL,cortype='bon',ratioval=1,p
    mutate(ratio=signif(as.numeric(ratio),3)) 
   resset$padj <- round(p.adjust(resset$pvalue, cortype, n=nrow(resset)),5)
   sigres <- resset %>% dplyr::filter(ratio>=ratioval & padj<=pcut) %>% arrange(padj)
-  
+  if(!is.null(exportfile)){
+    sigres %>% write_csv(file=exportfile)
+  }
   strsql <- str_c("
     SELECT DISTINCT
       medcodeid,

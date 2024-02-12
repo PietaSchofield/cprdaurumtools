@@ -12,21 +12,30 @@
 #'
 #' @export
 load_onsfiles <- function(pddir,dbf,ow=T,db=F,tad,pats){
-  onsfiles <- list.files(pddir,pattern=".*txt",full=T)
-  dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
-  names(onsfiles) <- tolower(gsub(paste0("_",tad,"[.]txt"),"",basename(onsfiles)))
+  if(db){
+    pddir <- odir
+    tad <- "21_001631"
+    dbf <- "/home/pietas/Projects/t2dd/.data/t2dd_prep.duckdb" 
+    ow <- T
+    pats <- patids
+  }  
+  onsfiles <- list.files(pddir,pattern="death_.*txt",full=T)
+  names(onsfiles) <- tolower(gsub(paste0("_",tad,".*[.]txt"),"",basename(onsfiles)))
   lapply(names(onsfiles),function(fn){
+    dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
     if(!fn%in%duckdb::dbListTables(dbi) || ow){
       dat <- readr::read_tsv(onsfiles[[fn]],col_types=readr::cols(.default=readr::col_character())) %>%
         as_tibble() %>% dplyr::filter(patid%in%pats)
       names(dat) <- tolower(names(dat))
       duckdb::dbWriteTable(dbi,fn,dat,overwrite=T)
+      duckdb::dbDisconnect(dbi)
       nr <- dat %>% nrow()
       cat(paste0(basename(fn),": ",nr," records loaded\n"))
       rm(dat)
       gc()
+    }else{
+      duckdb::dbDisconnect(dbi)
     }
   })
-  duckdb::dbDisconnect(dbi)
   return()
 }

@@ -11,7 +11,8 @@ get_cohort(
   minage = 0,
   maxage = 16,
   indexfield = "case",
-  vfill = 0
+  vfill = 0,
+  summarise = T
 )
 }
 \description{

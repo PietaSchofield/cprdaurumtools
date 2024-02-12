@@ -12,7 +12,8 @@ run_test2(
   ratioval = 1,
   pcut = 0.05,
   groupat = "medcodeid",
-  db = F
+  db = F,
+  exportfile = NULL
 )
 }
 \description{

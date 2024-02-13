@@ -533,8 +533,54 @@ symptomcodes %>% select(medcodeid,term) %>%
 ## Counts of Codes
 
 ```{r}
+devtools::reload(pkg="/home/pietas/GitLab/cprdaurumtools")
+help(sum_observations)
+sum_obs <- sum_observations(dbfile,cases="sle")
+sle_pats <- get_cohort(dbfile) %>% dplyr::filter(sle>0) %>% pull(patid)
+sum_bycode <- sum_obs %>% mutate(cc=ifelse(patid%in%sle_pats,"sle","cont")) %>% group_by(cc,medcodeid) %>%
+  summarise(n=n(),minfreq=min(freq),maxfreq=max(freq),meanfreq=mean(freq),.groups="drop")
+sum_cc <- sum_obs %>% select(patid) %>% unique() %>%
+  mutate(cc=ifelse(patid%in%sle_pats,"sle","cont")) %>%
+  group_by(cc) %>% summarise(n=n(),.groups="drop")
+meanfreq <- sum_bycode %>% 
+  pivot_wider(id_cols=medcodeid,names_from="cc",values_from="meanfreq",values_fill=0) %>%
+  mutate(test=sle/(cont+sle))
+cohort_count <- sum_bycode %>% 
+  pivot_wider(id_cols=medcodeid,names_from="cc",values_from="n",values_fill=0) %>%
+  mutate(test_n=sle/(cont+sle)) %>% rename(cont_n=cont,sle_n=sle)
+hightest <- meanfreq %>% arrange(desc(sle),desc(test)) %>% dplyr::filter(test>0.5) %>%
+  inner_join(get_medcodes(dbf), by="medcodeid") %>% 
+  select(medcodeid,term,sle,cont,test,snomedctconceptid) %>% 
+  inner_join(cohort_count,by="medcodeid")
+hightest %>% dplyr::filter(sle_n>=50) %>% display_data(disp=.disp,buttons=T)
+
+get_medcodes(dbfile) %>% dplyr::filter(snomedctconceptid=="498521000006103")
+```
+
+This is interesting I think as it shows there are some differences. But I think I need to find some means
+of looking for discriminants
+
+Possibly age at first diagnosis
+
+Let's first look at it the other way what comes up if we look at other
+
+```{r}
+lowtest <- meanfreq %>% arrange(desc(cont),test) %>% dplyr::filter(test<0.5) %>%
+  inner_join(get_medcodes(dbf), by="medcodeid") %>% 
+  select(medcodeid,term,sle,cont,test,snomedctconceptid) %>% 
+  inner_join(cohort_count,by="medcodeid")
+lowtest %>% dplyr::filter(sle_n<2) %>% display_data(disp=.disp,buttons=T)
+```
+
+This is not looking very revealing it appears that the number of times things are coded is about the
+same.
+
+Perhaps I should be looking at consultations not observations
+
+```{r}
 
 ```
+
 
 
 

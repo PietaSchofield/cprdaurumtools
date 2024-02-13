@@ -2,10 +2,10 @@
 #'
 #'
 #' @export
-sum_observations <- function(dbf, indexcode=NULL,db=F){
+sum_observations <- function(dbf, cases=NULL,db=F){
   if(db){
     dbf <- dbfile
-    cohort <- "sle"
+    cases <- "sle"
   }
   ddbc <- duckdb::dbConnect(duckdb::duckdb(),dbf)
   sum_sql <- str_c(" 
@@ -14,7 +14,7 @@ sum_observations <- function(dbf, indexcode=NULL,db=F){
       medcodeid,
       first_obs,
       last_obs,
-      COUNT(medcodeid)
+      COUNT(medcodeid) AS freq
     FROM(
       SELECT
         p.patid,
@@ -30,7 +30,7 @@ sum_observations <- function(dbf, indexcode=NULL,db=F){
         observations AS o
         ON p.patid=o.patid
       WHERE 
-        codetype LIKE '",cohort,"' AND
+        codetype LIKE '",cases,"' AND
         o.obsdate < CAST(i.indexdate AS DATE)
         ) AS tmp
     GROUP BY
@@ -41,5 +41,5 @@ sum_observations <- function(dbf, indexcode=NULL,db=F){
 
   sum_obs <- dbGetQuery(ddbc,sum_sql) %>% tibble()
   duckdb::dbDisconnect(ddbc)
-  sum_obs
+  return(sum_obs)
 }

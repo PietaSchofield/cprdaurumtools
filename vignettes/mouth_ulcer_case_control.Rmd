@@ -534,7 +534,7 @@ symptomcodes %>% select(medcodeid,term) %>%
 
 ```{r}
 devtools::reload(pkg="/home/pietas/GitLab/cprdaurumtools")
-help(sum_observations)
+
 sum_obs <- sum_observations(dbfile,cases="sle")
 sle_pats <- get_cohort(dbfile) %>% dplyr::filter(sle>0) %>% pull(patid)
 sum_bycode <- sum_obs %>% mutate(cc=ifelse(patid%in%sle_pats,"sle","cont")) %>% group_by(cc,medcodeid) %>%
@@ -549,7 +549,7 @@ cohort_count <- sum_bycode %>%
   pivot_wider(id_cols=medcodeid,names_from="cc",values_from="n",values_fill=0) %>%
   mutate(test_n=sle/(cont+sle)) %>% rename(cont_n=cont,sle_n=sle)
 hightest <- meanfreq %>% arrange(desc(sle),desc(test)) %>% dplyr::filter(test>0.5) %>%
-  inner_join(get_medcodes(dbf), by="medcodeid") %>% 
+  inner_join(get_medcodes(dbfile), by="medcodeid") %>% 
   select(medcodeid,term,sle,cont,test,snomedctconceptid) %>% 
   inner_join(cohort_count,by="medcodeid")
 hightest %>% dplyr::filter(sle_n>=50) %>% display_data(disp=.disp,buttons=T)
@@ -566,7 +566,7 @@ Let's first look at it the other way what comes up if we look at other
 
 ```{r}
 lowtest <- meanfreq %>% arrange(desc(cont),test) %>% dplyr::filter(test<0.5) %>%
-  inner_join(get_medcodes(dbf), by="medcodeid") %>% 
+  inner_join(get_medcodes(dbfile), by="medcodeid") %>% 
   select(medcodeid,term,sle,cont,test,snomedctconceptid) %>% 
   inner_join(cohort_count,by="medcodeid")
 lowtest %>% dplyr::filter(sle_n<2) %>% display_data(disp=.disp,buttons=T)
@@ -578,6 +578,9 @@ same.
 Perhaps I should be looking at consultations not observations
 
 ```{r}
+res <- sum_consults(dbfile,cases="sle") %>% tibble()
+res %>% mutate(freq=freq/(1+period)) %>% group_by(cohort) %>%
+  summarise(freq=mean(freq),.groups="drop")
 
 ```
 
@@ -588,7 +591,11 @@ Perhaps I should be looking at consultations not observations
 homeDir <- Sys.getenv("HOME")
 inputpath <- file.path(homeDir,"GitLab","cprdaurumtools","vignettes")
 inputFile <- file.path(inputpath,"mouth_ulcer_case_control.Rmd")
-noteDir <- file.path(homeDir,"Notes","uol","mung")
+if(Sys.info()["nodename"]=="s600"){
+  noteDir <- file.path("/var","www","html","uol","mung")
+}else{
+  noteDir <- file.path(homeDir,"Notes","uol","mung")
+}
 system2("firefox",
         args=rmarkdown::render(inputFile,encoding=encoding,output_dir=noteDir))
 ```

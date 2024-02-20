@@ -110,46 +110,53 @@ linkages %>% group_by(linkage) %>% summarise(N=sum(linked),.groups="drop") %>%
 There are lots of covariates for this project. This needs turning into a function
 
 ```{r}
-prdir <- file.path(projRoot,"t2dd","reference")
-cvfile <- file.path(prdir,"xls","baseline_covariates_codes.xlsx")
-cvs <- readxl::excel_sheets(cvfile)[-1]
-names(cvs) <- cvs
-cvtab <- lapply(cvs,function(sn) readxl::read_excel(cvfile,sheet=sn)) %>% 
-  plyr::ldply() %>% tibble() %>% rename(cv=.id) %>% select(cv,medcodeid) 
 dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
 if(!"baseline_codes"%in%dbListTables(dbi)){
-  dbWriteTable(dbi,"baseline_codes",cvtab,overwrite=T)
+  prdir <- file.path(projRoot,"t2dd","reference")
+  cvfile <- file.path(prdir,"xls","baseline_covariates_codes.xlsx")
+  cvs <- readxl::excel_sheets(cvfile)[-1]
+  names(cvs) <- cvs
+  cvtab <- lapply(cvs,function(sn) readxl::read_excel(cvfile,sheet=sn)) %>% 
+    plyr::ldply() %>% tibble() %>% rename(cv=.id) %>% select(cv,medcodeid) 
+    dbWriteTable(dbi,"baseline_codes",cvtab,overwrite=T)
 }
 duckdb::dbDisconnect(dbi,shutdown=T)
 
-_extract_baselines <- function(dbf,tabname){
+.extract_baselines <- function(dbf,tabname){
   if(F){
     tabname <- "baseline_codes"
     dbf <- dbif
   }
   ext_bl_sql <- str_c("
-    SELECT 
+    SELECT DISTINCT
       o.patid,
       o.medcodeid,
       o.obsdate,
       o.value,
-      o
+      o.numrangelow AS minval,
+      o.numrangehigh AS maxval,
+      nu.description AS units,
+      bl.cv AS baseline
     FROM 
       observations AS o
     INNER JOIN
       ",tabname," AS bl
       ON bl.medcodeid=o.medcodeid
-    LEFT JOIN)
+    LEFT JOIN
+     aurum_numunit AS nu
+     ON nu.numunitid=o.numunitid")
 
   dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
   res <- dbGetQuery(dbi,ext_bl_sql) %>% tibble()
   dbDisconnect(dbi)
   res
-
-
 }
 
+baseline_vals <- .extract_baselines(dbif,tabname="baseline_codes")
+baseline_vals %>% group_by(baseline) %>% summarise(N=n(),.groups="drop") %>% display_data(disp=T)
 ```
+
+## Index Dates
 
 
 

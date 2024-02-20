@@ -12,21 +12,32 @@
 #'
 #' @export
 load_hesfiles <- function(pddir,dbf,ow=T,db=F,tad,pats){
+  if(db){
+    pddir <- hdir 
+    dbf <- dbif
+    tad <- "21_001631.*"
+    pats <- patids
+    ow <- F
+  }
   hesfiles <- list.files(pddir,pattern=".*txt",full=T)
-  dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
   names(hesfiles) <- tolower(gsub(paste0("_",tad,"[.]txt"),"",basename(hesfiles)))
+
   lapply(names(hesfiles),function(fn){
+    dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
     if(!fn%in%duckdb::dbListTables(dbi) || ow){
       dat <- readr::read_tsv(hesfiles[[fn]],col_types=readr::cols(.default=readr::col_character())) %>%
         as_tibble() %>% dplyr::filter(patid%in%pats)
       names(dat) <- tolower(names(dat))
+
       duckdb::dbWriteTable(dbi,fn,dat,overwrite=T)
+      duckdb::dbDisconnect(dbi)
       nr <- dat %>% nrow()
       cat(paste0(basename(fn),": ",nr," records loaded\n"))
       rm(dat)
       gc()
+    }else{
+      duckdb::dbDisconnect(dbi)
     }
   })
-  duckdb::dbDisconnect(dbi)
   return()
 }

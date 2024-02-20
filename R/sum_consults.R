@@ -59,4 +59,4 @@ sum_consults <- function(dbf,cases='%',short=T,db=F){
   }else{
     res
   }
-
+}

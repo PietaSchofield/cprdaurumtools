@@ -13,18 +13,16 @@
 #' @export
 load_cprdfiles <- function(pddir,dbf,ow=T,db=F){
   if(F){
-    pddir <- cprddir
-    dbf <- dbfile
+    pddir <- rdir
+    dbf <- dbif
     ow=F
     db=F
   }
   cprdfiles <- list.files(pddir,pattern=".*txt",full=T)
-  names(cprdfiles) <- tolower(gsub("(^[0-9]*_|[.]txt)","",basename(cprdfiles)))
-  dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
-  tabs <- dbListTables(dbi)
-  dbDisconnect(dbi)
+  names(cprdfiles) <- paste0("aurum_",tolower(gsub("(^[0-9]*_|[.]txt)","",basename(cprdfiles))))
   lapply(names(cprdfiles),function(fn){
-    if(!fn%in%tabs || ow){
+    dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
+    if(!fn%in%dbListTables(dbi) || ow){
       dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
       dat <- readr::read_tsv(cprdfiles[[fn]],col_types=readr::cols(.default=readr::col_character())) %>%
         as_tibble()
@@ -35,6 +33,8 @@ load_cprdfiles <- function(pddir,dbf,ow=T,db=F){
       cat(paste0(basename(fn),": ",nr," records loaded\n"))
       rm(dat)
       gc()
+    }else{
+      duckdb::dbDisconnect(dbi,shutdown=T)
     }
   })
   return()

@@ -1,0 +1,168 @@
+---
+title: "T2DD ETL"
+author: "Pieta"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{T2DD ETL}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Introduction
+
+This is the processing and ETL of the first batch of data for the Type 2 Diabetes Drugs Project
+
+## Method
+
+Load the data into a temporary duckdb database and then perform the cleaning processes once loaded as
+this is easier than multiple passes on the same datafile.
+
+Set up the temporary paths to the raw files.
+
+### Paths
+
+```{r}
+require(cprdaurumtools)
+require(tidyverse)
+require(duckdb)
+require(plib)
+homeDir <- Sys.getenv("HOME")
+projRoot <- file.path(homeDir,"Projects")
+batch <- 1 
+pdir <- file.path(projRoot,"t2dd",".data")
+ddir <- file.path(pdir,"aurum",paste0("batch",batch))
+rdir <- file.path(projRoot,"refdata","aurum","202303_Lookups_CPRDAurum")
+ldir <- file.path(pdir,"linked")
+hdir <- file.path(ldir,"hes")
+odir <- file.path(ldir,"ons")
+idir <- file.path(ldir,"ons")
+dbif <- file.path(pdir,"t2dd_prep.duckdb")
+```
+
+### Load Patients
+
+```{r}
+pddir <- file.path(ddir,"Patient")
+load_patients(pdir=pddir,dbf=dbif,ow=F)
+str_sql <- "SELECT patid FROM patients;"
+dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
+patids <- dbGetQuery(dbi,str_sql) %>% as_tibble() %>% pull(patid)
+duckdb::dbDisconnect(dbi)
+pddir <- file.path(ddir,"Observation")
+load_obs(pddir=pddir,dbf=dbif,ow=F)
+pddir <- file.path(ddir,"DrugIssue")
+load_drugissues(pddir=pddir,dbf=dbif,ow=F)
+pddir <- file.path(ddir,"Consultation")
+load_cons(pddir=pddir,dbf=dbif,ow=F)
+load_hesfiles(pddir=hdir,dbf=dbif,tad="21_001631.*",pats=patids,ow=F)
+load_imdfiles(pddir=idir,dbf=dbif,tad="21_001631.*",pats=patids,ow=F)
+load_onsfiles(pddir=odir,dbf=dbif,tad="21_001631.*",pats=patids,ow=F)
+load_cprdfiles(pddir=rdir,dbf=dbif,ow=F)
+```
+
+## Pre-processing
+
+At this point we have loaded a lot of data into the pre-processing database the next step is to transfer
+processed records to the analysis database
+
+### Complete Cases
+
+Possibly we need to join the patient table with the HES patient table and their ONS and IMD data
+
+```{r}
+linkage_sql <- str_c("
+  SELECT
+    p.patid,
+    h.patid AS apc_id,
+    i.patid AS imd_id,
+    o.patid AS ons_id
+  FROM 
+    patients AS p
+  LEFT JOIN
+    hes_patient AS h
+    ON p.patid=h.patid
+  LEFT JOIN 
+    patient_2019_imd AS i
+    ON p.patid=i.patid
+  LEFT JOIN
+    death_patient AS o
+    ON p.patid=o.patid")
+
+dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
+linkages <- dbGetQuery(dbi,linkage_sql) %>% tibble()
+duckdb::dbDisconnect(dbi)
+linkages <- linkages %>% pivot_longer(-patid,names_to="linkage",values_to="linked") %>%
+  mutate(linked=ifelse(!is.na(linked),1,0))
+linkages %>% group_by(linkage) %>% summarise(N=sum(linked),.groups="drop") %>% 
+  display_data(disp=T)
+```
+
+## Baseline Covariates
+
+There are lots of covariates for this project. This needs turning into a function
+
+```{r}
+prdir <- file.path(projRoot,"t2dd","reference")
+cvfile <- file.path(prdir,"xls","baseline_covariates_codes.xlsx")
+cvs <- readxl::excel_sheets(cvfile)[-1]
+names(cvs) <- cvs
+cvtab <- lapply(cvs,function(sn) readxl::read_excel(cvfile,sheet=sn)) %>% 
+  plyr::ldply() %>% tibble() %>% rename(cv=.id) %>% select(cv,medcodeid) 
+dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
+if(!"baseline_codes"%in%dbListTables(dbi)){
+  dbWriteTable(dbi,"baseline_codes",cvtab,overwrite=T)
+}
+duckdb::dbDisconnect(dbi,shutdown=T)
+
+_extract_baselines <- function(dbf,tabname){
+  if(F){
+    tabname <- "baseline_codes"
+    dbf <- dbif
+  }
+  ext_bl_sql <- str_c("
+    SELECT 
+      o.patid,
+      o.medcodeid,
+      o.obsdate,
+      o.value,
+      o
+    FROM 
+      observations AS o
+    INNER JOIN
+      ",tabname," AS bl
+      ON bl.medcodeid=o.medcodeid
+    LEFT JOIN)
+
+  dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
+  res <- dbGetQuery(dbi,ext_bl_sql) %>% tibble()
+  dbDisconnect(dbi)
+  res
+
+
+}
+
+```
+
+
+
+```{r echo=F,eval=F}
+homeDir <- Sys.getenv("HOME")
+inputpath <- file.path(homeDir,"GitLab","cprdaurumtools","vignettes")
+inputFile <- file.path(inputpath,"t2dd_etl.Rmd")
+if(Sys.info()["nodename"]=="s600"){
+  noteDir <- file.path("/var","www","html","uol","t2dd")
+}else{
+  noteDir <- file.path(homeDir,"Notes","uol","t2dd")
+}
+
+fdisp <- rmarkdown::render(inputFile,encoding=encoding,output_dir=noteDir,clean=T)
+system2("firefox", args=fdisp, stderr=NULL,wait=F)
+```

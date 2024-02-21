@@ -237,13 +237,13 @@ idx_sql <- str_c("
       type2codes AS c
       ON c.medcodeid = o.medcodeid
     WHERE 
-      o.obsdate > CAST('19) AS t
+      o.obsdate > CAST('1960-01-01' AS DATE)) AS t
     ON t.patid=p.patid")
 
 dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
 idx_vals <- dbGetQuery(dbi,idx_sql) %>% tibble()
 dbDisconnect(dbi)
-idx_vals
+
 idx_vals %>% mutate(iyear=lubridate::year(lubridate::ymd(indexdate))) %>%
   dplyr::filter(!is.na(iyear)) %>% ggplot() + geom_bar(aes(x=iyear))
 t2pats <- idx_vals %>% mutate(iyear=lubridate::year(lubridate::ymd(indexdate))) %>%
@@ -273,8 +273,8 @@ That means these are all cases well that is a relief, compare index dates
 
 ```{r}
 sanitycheck <- sanitydata %>% inner_join(idx_vals,by="patid")
-sanitycheck %>% dplyr::filter(is.na(indexdate))
-sanitycheck %>% dplyr::filter(latestindex!=indexdate)
+sanitycheck %>% dplyr::filter(is.na(indexdate)) %>% display_data(disp=T)
+sanitycheck %>% dplyr::filter(latestindex!=indexdate) %>% display_data(disp=T)
 ```
 
 This is getting stranger where are these missing codes
@@ -282,10 +282,10 @@ This is getting stranger where are these missing codes
 Well that is a relief too. Only part of the data was there.
 
 ```{r}
-t2codesfiles <- file.path(projRoot,"t2dd","reference","txt","t2dcodes.txt")
-t2codes <- read_tsv(t2codesfiles,col_type=cols(.default=col_character())) %>% select(MedCodeId)
-t2dc <- t2dcodes %>% full_join(t2codes, by="MedCodeId") %>% arrange(desc(MedCodeId))
 if(F){
+  t2codesfiles <- file.path(projRoot,"t2dd","reference","txt","t2dcodes.txt")
+  t2codes <- read_tsv(t2codesfiles,col_type=cols(.default=col_character())) %>% select(MedCodeId)
+  t2dc <- t2dcodes %>% full_join(t2codes, by="MedCodeId") %>% arrange(desc(MedCodeId))
   dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
   dbExecute(dbi,"DROP TABLE observations")
   dbWriteTable(dbi,"type2codes",t2dc,over=T)

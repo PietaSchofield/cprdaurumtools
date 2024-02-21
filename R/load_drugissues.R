@@ -25,7 +25,7 @@ load_drugissues <- function(pddir,dbf,ow=F,db=F,tab_name="drug_issues",
   if(!tab_name%in%tabs || ow){
     if(tab_name%in%tabs){
       dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
-      duckdb::dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))
+      DBI::dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))
       duckdb::dbDisconnect(dbi)  
     }
     nrec <- lapply(difiles,function(fn){

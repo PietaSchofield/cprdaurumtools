@@ -54,6 +54,7 @@ pddir <- file.path(ddir,"Patient")
 load_patients(pdir=pddir,dbf=dbif,ow=F)
 str_sql <- "SELECT patid FROM patients;"
 dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
+dbListTables(dbi) 
 patids <- dbGetQuery(dbi,str_sql) %>% as_tibble() %>% pull(patid)
 duckdb::dbDisconnect(dbi)
 pddir <- file.path(ddir,"Observation")
@@ -118,47 +119,194 @@ if(!"baseline_codes"%in%dbListTables(dbi)){
   names(cvs) <- cvs
   cvtab <- lapply(cvs,function(sn) readxl::read_excel(cvfile,sheet=sn)) %>% 
     plyr::ldply() %>% tibble() %>% rename(cv=.id) %>% select(cv,medcodeid) 
-    dbWriteTable(dbi,"baseline_codes",cvtab,overwrite=T)
+  dbWriteTable(dbi,"baseline_codes",cvtab,overwrite=T)
 }
 duckdb::dbDisconnect(dbi,shutdown=T)
 
-.extract_baselines <- function(dbf,tabname){
-  if(F){
-    tabname <- "baseline_codes"
-    dbf <- dbif
-  }
-  ext_bl_sql <- str_c("
-    SELECT DISTINCT
-      o.patid,
-      o.medcodeid,
-      o.obsdate,
-      o.value,
-      o.numrangelow AS minval,
-      o.numrangehigh AS maxval,
-      nu.description AS units,
-      bl.cv AS baseline
-    FROM 
-      observations AS o
-    INNER JOIN
-      ",tabname," AS bl
-      ON bl.medcodeid=o.medcodeid
-    LEFT JOIN
-     aurum_numunit AS nu
-     ON nu.numunitid=o.numunitid")
+gen_baselines(dbf=dbif,tabname="baseline_codes")
 
-  dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
-  res <- dbGetQuery(dbi,ext_bl_sql) %>% tibble()
-  dbDisconnect(dbi)
-  res
-}
+ext_bl_sql <- str_c("SELECT DISTINCT * FROM covariate_observations")
 
-baseline_vals <- .extract_baselines(dbif,tabname="baseline_codes")
-baseline_vals %>% group_by(baseline) %>% summarise(N=n(),.groups="drop") %>% display_data(disp=T)
+dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
+cv_vals <- dbGetQuery(dbi,ext_bl_sql) %>% tibble()
+dbDisconnect(dbi)
+
+cv_vals %>% group_by(baseline) %>% summarise(N=n(),.groups="drop") %>% display_data(disp=T)
 ```
 
 ## Index Dates
 
+### Drug of interest
 
+These relate to the medications so perhaps pull a medications table
+
+```{r}
+dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
+if(!"exposure_codes"%in%dbListTables(dbi)){
+  prdir <- file.path(projRoot,"t2dd","reference")
+  cvfile <- file.path(prdir,"xls","Aurum_medication_codes_exposures.xlsx")
+  cvs <- readxl::excel_sheets(cvfile)[-1]
+  mec <- readxl::read_excel(cvfile,sheet=1,col_types="text") %>% 
+  names(mec) <- tolower(names(mec))
+  dbWriteTable(dbi,"exposure_codes",mec,overwrite=T)
+}
+duckdb::dbDisconnect(dbi,shutdown=T)
+
+gen_drugexposure(dbf=dbif,newtab="drug_exposures",tabname="exposure_codes",substancefield="substancelink")
+
+ext_dex_sql <- str_c("SELECT * FROM drug_exposures")
+
+dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
+dex_vals <- dbGetQuery(dbi,ext_dex_sql) %>% tibble()
+dbDisconnect(dbi)
+
+dex_vals %>% group_by(substance) %>% summarise(N=n(),.groups="drop") %>% display_data(disp=T)
+```
+
+So how many patients have exposures
+
+```{r}
+exp_sql <- str_c("
+  SELECT DISTINCT
+    p.patid,
+    p.yob,
+    COALESCE(t.substance,'none') AS substance,
+    indexdate,
+    1 AS cohort,
+    YEAR(CAST(indexdate AS DATE)) - p.yob AS indexage
+  FROM
+    patients AS p
+  LEFT JOIN(
+    SELECT DISTINCT
+      patid,
+      substancelink AS substance,
+      FIRST(d.issuedate) OVER (PARTITION BY d.patid, e.substancelink ORDER BY d.issuedate) AS indexdate
+    FROM 
+      drug_issues AS d
+    INNER JOIN
+      exposure_codes AS e
+      ON e.prodcodeid=d.prodcodeid) AS t
+    ON t.patid=p.patid")
+    
+dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
+dex_vals <- dbGetQuery(dbi,exp_sql) %>% tibble()
+dbDisconnect(dbi)
+
+dex_vals %>% mutate(indexdate=lubridate::ymd(indexdate)) %>% dplyr::filter(substance!="none") %>%
+  group_by(substance) %>% summarise(N=n(),mediandate=median(indexdate),.groups="drop") %>%
+  display_data(disp=T)
+exppat <- dex_vals %>% dplyr::filter(substance!="none")  %>% pull(patid) %>% unique()
+length(exppat)
+```
+
+### Diabetes 2 dates
+
+```{r}
+dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
+if(!"type2codes"%in%dbListTables(dbi)){
+  prdir <- file.path(projRoot,"t2dd","reference")
+  t2dcodesfile <- file.path(prdir,"xls","Aurum_diabetes_type_2_codes.xlsx")
+  t2dcodes <- readxl::read_excel(t2dcodesfile,col_type="text") %>%
+    select(MedCodeId,Term,SnomedCTConceptId) 
+  names(t2dcodes) <- tolower(names(t2dcodes))
+  dbWriteTable(dbi,"type2codes",t2dcodes,over=T)
+}
+dbDisconnect(dbi)
+
+idx_sql <- str_c("
+  SELECT DISTINCT
+    p.patid,
+    p.yob,
+    p.regstartdate,
+    p.regenddate,
+    p.cprd_ddate,
+    p.emis_ddate,
+    t.indexdate
+  FROM 
+    patients AS p
+  LEFT JOIN(
+    SELECT DISTINCT
+      o.patid,
+      FIRST(o.obsdate) OVER (PARTITION BY o.patid ORDER BY o.obsdate) AS indexdate
+    FROM
+      patients AS r
+    INNER JOIN
+      observations AS o
+      ON r.patid=o.patid
+    INNER JOIN
+      type2codes AS c
+      ON c.medcodeid = o.medcodeid
+    WHERE 
+      o.obsdate > CAST('19) AS t
+    ON t.patid=p.patid")
+
+dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
+idx_vals <- dbGetQuery(dbi,idx_sql) %>% tibble()
+dbDisconnect(dbi)
+idx_vals
+idx_vals %>% mutate(iyear=lubridate::year(lubridate::ymd(indexdate))) %>%
+  dplyr::filter(!is.na(iyear)) %>% ggplot() + geom_bar(aes(x=iyear))
+t2pats <- idx_vals %>% mutate(iyear=lubridate::year(lubridate::ymd(indexdate))) %>%
+  dplyr::filter(!is.na(iyear)) %>% pull(patid) 
+length(t2pats)
+intersect(t2pats,exppat) %>% length()
+```
+
+This is puzzling I need to check if people with no diabetes codes already have it at start of study
+period. It is insane not just puzzling
+
+A quick sanity check shows that we have about 225 observations per patient. That doesn't really seem
+enough to me. We are also only interested in patients with diabetes 2 codes 
+
+
+So we have a sanity check for 
+
+```{r}
+sanityfile <- file.path(pdir,"t2dd_Define_results.txt")
+sanitydata <- read_tsv(sanityfile,col_type=cols(.default=col_character())) %>% 
+  mutate(indexdate=lubridate::dmy(indexdate)) %>% rename(latestindex=indexdate)
+sanitydata %>% arrange(latestindex)
+sanitydata %>% dplyr::filter(patid%in%patids) %>% nrow()
+```
+
+That means these are all cases well that is a relief, compare index dates
+
+```{r}
+sanitycheck <- sanitydata %>% inner_join(idx_vals,by="patid")
+sanitycheck %>% dplyr::filter(is.na(indexdate))
+sanitycheck %>% dplyr::filter(latestindex!=indexdate)
+```
+
+This is getting stranger where are these missing codes
+
+Well that is a relief too. Only part of the data was there.
+
+```{r}
+t2codesfiles <- file.path(projRoot,"t2dd","reference","txt","t2dcodes.txt")
+t2codes <- read_tsv(t2codesfiles,col_type=cols(.default=col_character())) %>% select(MedCodeId)
+t2dc <- t2dcodes %>% full_join(t2codes, by="MedCodeId") %>% arrange(desc(MedCodeId))
+if(F){
+  dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
+  dbExecute(dbi,"DROP TABLE observations")
+  dbWriteTable(dbi,"type2codes",t2dc,over=T)
+  dbDisconnect(dbi,shutdown=T)
+}
+```
+
+Is this the problem of missing data from the CPRD extract.
+
+I can create a list of patients and re-extract
+
+```{r}
+if(F){
+  dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
+  patidlist <- dbGetQuery(dbi,"SELECT patid FROM patients")
+  patidlist %>% write_tsv(file=file.path(pdir,"batch1_patients.txt"))
+  dbDisconnect(dbi,shutdown=T)
+}
+```
+
+This means that the index dates are suspect for a large number of patients
 
 ```{r echo=F,eval=F}
 homeDir <- Sys.getenv("HOME")

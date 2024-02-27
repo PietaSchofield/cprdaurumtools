@@ -44,7 +44,13 @@ load_cons <- function(pddir,dbf,ow=F,db=F,tab_name="consultations",
       rm(dat)
       return(nr)
     })
+    ext <- "new records"
+  }else{
+    dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
+    nrec <- dbGetQuery(dbi,paste0("SELECT COUNT(*) FROM ",tab_name,";"))
+    dbDisconnect(dbi)
+    ext <- "records exist"
   }
   trec <- sum(unlist(nrec))
-  return(cat(paste0(trec," records processed\n")))
+  return(cat(paste0(trec," ",ext,"\n")))
 }

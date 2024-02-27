@@ -28,16 +28,18 @@ load_hesfiles <- function(pddir,dbf,ow=T,db=F,tad,pats){
       dat <- readr::read_tsv(hesfiles[[fn]],col_types=readr::cols(.default=readr::col_character())) %>%
         as_tibble() %>% dplyr::filter(patid%in%pats)
       names(dat) <- tolower(names(dat))
-
       duckdb::dbWriteTable(dbi,fn,dat,overwrite=T)
       duckdb::dbDisconnect(dbi)
       nr <- dat %>% nrow()
-      cat(paste0(basename(fn),": ",nr," records loaded\n"))
+      ext <- "new records"
       rm(dat)
       gc()
     }else{
+      nr <- dbGetQuery(dbi,paste0("SELECT COUNT(*) FROM ",fn))
+      ext <- "records exist"
       duckdb::dbDisconnect(dbi)
     }
+    cat(paste0(basename(fn),": ",nr," ",ext,"\n"))
   })
   return()
 }

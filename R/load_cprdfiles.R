@@ -30,12 +30,15 @@ load_cprdfiles <- function(pddir,dbf,ow=T,db=F){
       duckdb::dbWriteTable(dbi,fn,dat,overwrite=T)
       duckdb::dbDisconnect(dbi,shutdown=T)
       nr <- dat %>% nrow()
-      cat(paste0(basename(fn),": ",nr," records loaded\n"))
+      ext <- "new records"
       rm(dat)
       gc()
     }else{
+      nr <- dbGetQuery(dbi,paste0("SELECT COUNT(*) FROM ",fn))
       duckdb::dbDisconnect(dbi,shutdown=T)
+      ext <- "records exist"
     }
+    cat(paste0(basename(fn),": ",nr," ",ext,"\n"))
   })
   return()
 }

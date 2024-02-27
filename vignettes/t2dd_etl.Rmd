@@ -38,13 +38,15 @@ homeDir <- Sys.getenv("HOME")
 projRoot <- file.path(homeDir,"Projects")
 batch <- 1 
 pdir <- file.path(projRoot,"t2dd",".data")
+rdir <- file.path(projRoot,"t2dd","reference")
 ddir <- file.path(pdir,"aurum",paste0("batch",batch))
-rdir <- file.path(projRoot,"refdata","aurum","202303_Lookups_CPRDAurum")
+cdir <- file.path(projRoot,"refdata","aurum","202303_Lookups_CPRDAurum")
 ldir <- file.path(pdir,"linked")
 hdir <- file.path(ldir,"hes")
 odir <- file.path(ldir,"ons")
 idir <- file.path(ldir,"ons")
 dbif <- file.path(pdir,"t2dd_prep.duckdb")
+dbof <- file.path(pdir,"t2dd.duckdb")
 ```
 
 ### Load Patients
@@ -63,10 +65,18 @@ pddir <- file.path(ddir,"DrugIssue")
 load_drugissues(pddir=pddir,dbf=dbif,ow=F)
 pddir <- file.path(ddir,"Consultation")
 load_cons(pddir=pddir,dbf=dbif,ow=F)
+pddir <- file.path(ddir,"Referral")
+load_referrals(pddir=pddir,dbf=dbif,ow=F)
+pddir <- file.path(ddir,"Problem")
+load_probs(pddir=pddir,dbf=dbif,ow=F)
+pddir <- file.path(ddir,"Staff")
+load_staff(pddir=pddir,dbf=dbif,ow=F)
+pddir <- file.path(ddir,"Practice")
+load_practice(pddir=pddir,dbf=dbif,ow=F)
 load_hesfiles(pddir=hdir,dbf=dbif,tad="21_001631.*",pats=patids,ow=F)
 load_imdfiles(pddir=idir,dbf=dbif,tad="21_001631.*",pats=patids,ow=F)
 load_onsfiles(pddir=odir,dbf=dbif,tad="21_001631.*",pats=patids,ow=F)
-load_cprdfiles(pddir=rdir,dbf=dbif,ow=F)
+load_cprdfiles(pddir=cdir,dbf=dbif,ow=F)
 ```
 
 ## Pre-processing
@@ -237,7 +247,7 @@ idx_sql <- str_c("
       type2codes AS c
       ON c.medcodeid = o.medcodeid
     WHERE 
-      o.obsdate > CAST('1960-01-01' AS DATE)) AS t
+      YEAR(CAST(o.obsdate AS DATE)) > r.yob) AS t
     ON t.patid=p.patid")
 
 dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
@@ -265,7 +275,6 @@ So we have a sanity check for
 sanityfile <- file.path(pdir,"t2dd_Define_results.txt")
 sanitydata <- read_tsv(sanityfile,col_type=cols(.default=col_character())) %>% 
   mutate(indexdate=lubridate::dmy(indexdate)) %>% rename(latestindex=indexdate)
-sanitydata %>% arrange(latestindex)
 sanitydata %>% dplyr::filter(patid%in%patids) %>% nrow()
 ```
 
@@ -293,9 +302,7 @@ if(F){
 }
 ```
 
-Is this the problem of missing data from the CPRD extract.
-
-I can create a list of patients and re-extract
+Is this the problem of missing data from the CPRD extract. I can create a list of patients and re-extract
 
 ```{r}
 if(F){
@@ -306,13 +313,134 @@ if(F){
 }
 ```
 
-This means that the index dates are suspect for a large number of patients
+This means that the index dates are suspect for a large number of patients.
+
+Index date of diabetes diagnosis
+
+- _indexdate_:  date of first acceptable record of a diabetes code against that patid
+    - _check if before YOB_: 
+        - __y__ reject get next date 
+        - __n__ _check if before regstartdate_: not sure here. 
+            - __y__ if before 2005/01/01 
+                - __n__ set to regstartdate
+                - __y__ set to 2005/01/01
+            - __n__ if defore 2005/01/01
+                - __n__ use as indexdate
+                - __y__ set to 2005/01/01
+
+```{r}
+gen_diagnosis_index(dbif,diag_tab="type2codes",idate_tab="baseline_date",sp_start="2005-01-01",
+                    sp_end="2022-12-31")
+
+
+dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
+cleanidates <- dbGetQuery(dbi,"SELECT * FROM baseline_date") %>% tibble()
+dbDisconnect(dbi,shutdown=T)
+
+cleanidates %>% mutate(iyear=lubridate::year(lubridate::ymd(basedate))) %>% 
+   ggplot() + geom_bar(aes(x=iyear))
+
+cleanidates %>% dplyr::filter(is.na(basedate)) %>% display_data(disp=T)
+```
+
+There are 180 folk in here who appear not to have any unambiguous diabetes start date. Are any of these
+patients on the new drugs or can we just drop them
+
+```{r}
+problemids <- cleanidates %>% dplyr::filter(is.na(basedate)) %>% pull(patid)
+dex_vals %>% dplyr::filter(substance!="none" & patid %in% problemids) %>% nrow()
+```
+
+One of the patients. I think we can drop them all but I will double check
+
+## Build MPI
+
+Perhaps the best thing to do is build a master patient index using the patient details then their
+baseline date, their exposure/pseudo-exposure date and their linkage status.
+
+```{r}
+sort( sapply(mget(ls()),object.size) ) 
+rm(list=c("linkages","sanitydata","cv_vals","dex_vals","idx_vals","t2pats","exppat","cleanidates",
+          "sanitycheck","patids"))
+gc()
+sort( sapply(mget(ls()),object.size) ) 
+extract_mpi(dbif,dbof)
+```
+
+Extract the baseline measurements
+
+What are the baseline measurements. Between the diagnosis of diabetes and the introduction of the
+medication.
+
+```{r}
+dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
+if(!"drug_dates"%in%dbListTables(dbi)){
+  drugintrofile <- file.path(rdir,"txt","drug_intro_dates.txt")
+  drugintro <- read_tsv(drugintrofile) %>% mutate(Date=lubridate::dmy(Date)) %>% rename(idate=Date)
+  names(drugintro) <- tolower(names(drugintro))
+  dbWriteTable(dbi,"drug_dates",drugintro,over=T)
+  reg <- dbGetQuery(dbi,"SELECT * FROM aurum_region")
+  reg
+}
+dbDisconnect(dbi,shutdown=T)
+```
+
+```{r}
+if(F){
+  dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
+  dbListTables(dbi)
+  dbListFields(dbi,"baseline_codes")
+  dbDisconnect(dbi)
+}
+.get_blm <- function(dbf,db=T){
+  if(db){
+    dbf <- dbif
+  }
+
+  blm_sql <- str_c("
+    SELECT
+      b.patid,
+      c.cv,
+      COUNT(m.value) AS n,
+      AVG(CAST(m.value AS REAL)) AS baseline
+    FROM 
+      baseline_date AS b
+    INNER JOIN
+      observations AS m
+      ON m.patid=b.patid
+    INNER JOIN
+      baseline_codes AS c
+      ON c.medcodeid=m.medcodeid
+    WHERE   
+      m.obsdate <= b.basedate AND
+      DATEDIFF('year',CAST(m.obsdate AS DATE),CAST(b.basedate AS DATE)) <= 10 AND
+      m.value IS NOT NULL
+    GROUP BY
+      b.patid,
+      c.cv,
+    ORDER BY
+      b.patid,
+      c.cv")
+
+  dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
+  blm <- dbGetQuery(dbi,blm_sql)
+  dbDisconnect(dbi)
+  blmv <- blm %>% select(-n) %>% pivot_wider(names_from="cv",values_from="baseline",values_fill=NULL)
+  bln <- blm %>% select(-baseline) %>% pivot_wider(names_from="cv",values_from="n",values_fill=0)
+  bln
+}
+
+```
+
+Need to create intervention dates for those who have not had any of the medications for each of the
+medication introduction date
+
 
 ```{r echo=F,eval=F}
 homeDir <- Sys.getenv("HOME")
 inputpath <- file.path(homeDir,"GitLab","cprdaurumtools","vignettes")
 inputFile <- file.path(inputpath,"t2dd_etl.Rmd")
-if(Sys.info()["nodename"]=="s600"){
+if(Sys.info()["nodename"]=="S600"){
   noteDir <- file.path("/var","www","html","uol","t2dd")
 }else{
   noteDir <- file.path(homeDir,"Notes","uol","t2dd")
@@ -320,4 +448,5 @@ if(Sys.info()["nodename"]=="s600"){
 
 fdisp <- rmarkdown::render(inputFile,encoding=encoding,output_dir=noteDir,clean=T)
 system2("firefox", args=fdisp, stderr=NULL,wait=F)
-```
+                                                                |~                                                                                                               
+355 ## Build MPI                             ```

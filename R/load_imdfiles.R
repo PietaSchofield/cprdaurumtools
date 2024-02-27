@@ -29,13 +29,16 @@ load_imdfiles <- function(pddir,dbf,ow=T,db=F,tad,pats){
       names(dat) <- tolower(names(dat))
       duckdb::dbWriteTable(dbi,fn,dat,overwrite=T)
       nr <- dat %>% nrow()
-      cat(paste0(basename(fn),": ",nr," records loaded\n"))
       duckdb::dbDisconnect(dbi)
+      ext <- "new records"
       rm(dat)
       gc()
     }else{
+      nr <- dbGetQuery(dbi,paste0("SELECT COUNT(*) FROM ",fn))
+      ext <- "records exist"
       duckdb::dbDisconnect(dbi)
     }
+    cat(paste0(basename(fn),": ",nr," ",ext,"\n"))
   })
   return()
 }

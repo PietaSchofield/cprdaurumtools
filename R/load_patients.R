@@ -6,13 +6,18 @@
 #' @param datadir the name of the data directory
 #'
 #' @export
-load_patients <- function(pdir,dbf,ow=F,db=F,tabname="patients",
+load_patients <- function(pdir,dbf,ow=F,db=F,tab_name="patients",
    selvars1=c("patid","pracid","gender","yob","regstartdate","regenddate","emis_ddate","cprd_ddate")){
+  if(db){
+    tab_name <- "patients"
+    ow <- F
+    dbf <- dbif
+    pdir <- pddir
+  }
   patfiles <- list.files(pdir,pattern="Patient",full=T,recur=T)
   names(patfiles) <- gsub(paste0("(^",pdir,"/|/Patient/.*)"),"",patfiles)
   dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
-  ret <- 0
-  if(!tabname%in%duckdb::dbListTables(dbi) || ow){
+  if(!tab_name%in%duckdb::dbListTables(dbi) || ow){
     dat <- plyr::ldply(lapply(patfiles,function(fn){
        readr::read_tsv(fn,col_type=readr::cols(.default=readr::col_character())) %>%
                      dplyr::select(all_of(selvars1)) %>%
@@ -22,11 +27,16 @@ load_patients <- function(pdir,dbf,ow=F,db=F,tabname="patients",
                             regenddate = format(lubridate::dmy(regenddate)),
                             cprd_ddate = format(lubridate::dmy(cprd_ddate)))
                      }))
-    ret <- dat %>% nrow()
-    duckdb::dbWriteTable(dbi,tabname,dat,overwrite=T,append=F)
+    nrec <- dat %>% nrow()
+    duckdb::dbWriteTable(dbi,tab_name,dat,overwrite=T,append=F)
     rm(dat)
     gc()
+    ext <- "new records"
+  }else{
+    nrec <- dbGetQuery(dbi,paste0("SELECT COUNT(*) FROM ",tab_name,";"))
+    dbDisconnect(dbi)
+    ext <- "records exist"
   }
-  duckdb::dbDisconnect(dbi,shutdown=T)
-  return(cat(paste0(ret," records processed\n")))
+  trec <- sum(unlist(nrec))
+  return(cat(paste0(trec," ",ext,"\n")))
 }

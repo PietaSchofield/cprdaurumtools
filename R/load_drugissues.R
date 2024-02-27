@@ -40,7 +40,13 @@ load_drugissues <- function(pddir,dbf,ow=F,db=F,tab_name="drug_issues",
       rm(dat)
       gc()
     })
+    ext <- "new records"
+  }else{
+    dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
+    nrec <- dbGetQuery(dbi,paste0("SELECT COUNT(*) FROM ",tab_name,";"))
+    dbDisconnect(dbi)
+    ext <- "records exist"
   }
-  trec <- nrec %>% unlist() %>% sum()
-  return(paste0(trec," records loaded"))
+  trec <- sum(unlist(nrec))
+  return(cat(paste0(trec," ",ext,"\n")))
 }

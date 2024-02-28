@@ -156,7 +156,7 @@ if(!"exposure_codes"%in%dbListTables(dbi)){
   prdir <- file.path(projRoot,"t2dd","reference")
   cvfile <- file.path(prdir,"xls","Aurum_medication_codes_exposures.xlsx")
   cvs <- readxl::excel_sheets(cvfile)[-1]
-  mec <- readxl::read_excel(cvfile,sheet=1,col_types="text") %>% 
+  mec <- readxl::read_excel(cvfile,sheet=1,col_types="text",skip=1) 
   names(mec) <- tolower(names(mec))
   dbWriteTable(dbi,"exposure_codes",mec,overwrite=T)
 }
@@ -216,7 +216,7 @@ dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
 if(!"type2codes"%in%dbListTables(dbi)){
   prdir <- file.path(projRoot,"t2dd","reference")
   t2dcodesfile <- file.path(prdir,"xls","Aurum_diabetes_type_2_codes.xlsx")
-  t2dcodes <- readxl::read_excel(t2dcodesfile,col_type="text") %>%
+  t2dcodes <- readxl::read_excel(t2dcodesfile,col_type="text",skip=1) %>%
     select(MedCodeId,Term,SnomedCTConceptId) 
   names(t2dcodes) <- tolower(names(t2dcodes))
   dbWriteTable(dbi,"type2codes",t2dcodes,over=T)
@@ -273,17 +273,21 @@ So we have a sanity check for
 
 ```{r}
 sanityfile <- file.path(pdir,"t2dd_Define_results.txt")
-sanitydata <- read_tsv(sanityfile,col_type=cols(.default=col_character())) %>% 
-  mutate(indexdate=lubridate::dmy(indexdate)) %>% rename(latestindex=indexdate)
-sanitydata %>% dplyr::filter(patid%in%patids) %>% nrow()
+if(file.exists(sanityfile)){
+  sanitydata <- read_tsv(sanityfile,col_type=cols(.default=col_character())) %>% 
+    mutate(indexdate=lubridate::dmy(indexdate)) %>% rename(latestindex=indexdate)
+  sanitydata %>% dplyr::filter(patid%in%patids) %>% nrow()
+}
 ```
 
 That means these are all cases well that is a relief, compare index dates
 
 ```{r}
-sanitycheck <- sanitydata %>% inner_join(idx_vals,by="patid")
-sanitycheck %>% dplyr::filter(is.na(indexdate)) %>% display_data(disp=T)
-sanitycheck %>% dplyr::filter(latestindex!=indexdate) %>% display_data(disp=T)
+if(file.exists(sanityfile)){
+  sanitycheck <- sanitydata %>% inner_join(idx_vals,by="patid")
+  sanitycheck %>% dplyr::filter(is.na(indexdate)) %>% display_data(disp=T)
+  sanitycheck %>% dplyr::filter(latestindex!=indexdate) %>% display_data(disp=T)
+}
 ```
 
 This is getting stranger where are these missing codes
@@ -360,8 +364,11 @@ baseline date, their exposure/pseudo-exposure date and their linkage status.
 
 ```{r}
 sort( sapply(mget(ls()),object.size) ) 
-rm(list=c("linkages","sanitydata","cv_vals","dex_vals","idx_vals","t2pats","exppat","cleanidates",
+lslist <- ls()
+rmlist <- intersect(lslist, 
+          c("linkages","sanitydata","cv_vals","dex_vals","idx_vals","t2pats","exppat","cleanidates",
           "sanitycheck","patids"))
+rm(list=rmlist)
 gc()
 sort( sapply(mget(ls()),object.size) ) 
 extract_mpi(dbif,dbof)
@@ -440,13 +447,8 @@ medication introduction date
 homeDir <- Sys.getenv("HOME")
 inputpath <- file.path(homeDir,"GitLab","cprdaurumtools","vignettes")
 inputFile <- file.path(inputpath,"t2dd_etl.Rmd")
-if(Sys.info()["nodename"]=="S600"){
-  noteDir <- file.path("/var","www","html","uol","t2dd")
-}else{
-  noteDir <- file.path(homeDir,"Notes","uol","t2dd")
-}
+noteDir <- file.path("/var","www","html","uol","t2dd")
 
 fdisp <- rmarkdown::render(inputFile,encoding=encoding,output_dir=noteDir,clean=T)
-system2("firefox", args=fdisp, stderr=NULL,wait=F)
-                                                                |~                                                                                                               
-355 ## Build MPI                             ```
+file.copy(fdisp,file.path(homeDir,"OneDrive","ul","Notes","uol","t2dd",basename(fdisp)),over=T)
+```

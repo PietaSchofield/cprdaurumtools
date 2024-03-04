@@ -5,7 +5,8 @@
 \title{get the drugissue records and convert some fields to useful field types}
 \usage{
 load_table(
-  filename,
+  filename = NULL,
+  dataset = NULL,
   dbf,
   ow = F,
   db = F,

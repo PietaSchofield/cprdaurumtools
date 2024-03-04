@@ -2,22 +2,23 @@
 % Please edit documentation in R/load_hesfiles.R
 \name{load_hesfiles}
 \alias{load_hesfiles}
-\title{get the drugissue records and convert some fields to useful field types}
+\title{load hes files}
 \usage{
-load_hesfiles(pddir, dbf, ow = T, db = F, tad, pats)
+load_hesfiles(pddir, dbf, ow = F, db = F, tad, pats)
 }
 \arguments{
-\item{bdir}{the name of the batch subdirectory}
+\item{pddir}{directory containing hes data}
 
-\item{odir}{the name of the output directory}
+\item{dbf}{name of duckdb database}
 
-\item{olist}{the list of observation codes}
+\item{ow}{overwrite an existing file}
 
-\item{bpp}{BiocParallal Multicore Parameters
+\item{db}{debug switch}
 
+\item{tad}{text adjustment to remove from file names when creating table name}
 
-Pass a table of covariate codes and generate covariates table}
+\item{pats}{a list of patient ids to extract from the hes data}
 }
 \description{
-get the drugissue records and convert some fields to useful field types
+get the hes files records and convert some fields to useful field types
 }

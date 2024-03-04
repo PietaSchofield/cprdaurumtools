@@ -7,5 +7,5 @@
 get_patients(dbf, fields = "*", whereclause = NULL)
 }
 \description{
-get patients
+get the patient data
 }

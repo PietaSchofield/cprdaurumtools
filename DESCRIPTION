@@ -8,9 +8,16 @@ Description: Functions used to process CPRD records
 License: CCL
 Encoding: UTF-8
 LazyData: true
-Import:
-  tidyverse
-  magrittr
-  duckdb
-  BiocParallel
+Imports:
+    dplyr,
+    plyr,
+    dbplyr,
+    readr,
+    readxl,
+    magrittr,
+    duckdb,
+    BiocParallel,
+    logr,
+    DT,
+    lubridate
 RoxygenNote: 7.3.1

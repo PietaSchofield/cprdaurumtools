@@ -1,11 +1,12 @@
-#' get patients
+#' get table
 #'
 #' get the patient data
 #'
 #' @export
-get_patients <- function(dbf,fields='*',whereclause=NULL){
+get_table <- function(dbf,tabname=NULL,fields='*',whereclause=NULL){
   if(F){
     dbf <- dbfile
+    tabname <- "drug_exposures"
     fields <- '*'
     whereclause <- NULL
   }
@@ -14,7 +15,7 @@ get_patients <- function(dbf,fields='*',whereclause=NULL){
     SELECT DISTINCT
     ",paste0(fields,collapse=", "),"
     FROM 
-      Patients ")
+    ",tabname,";")
   if(!is.null(whereclause)){
     strsql <- cat(strsql,"\n",whereclause)
   }

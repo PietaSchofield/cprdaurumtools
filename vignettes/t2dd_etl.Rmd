@@ -12,7 +12,8 @@ vignette: >
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = NA,
+  fig.width = 7
 )
 ```
 
@@ -51,14 +52,22 @@ dbof <- file.path(pdir,"t2dd.duckdb")
 
 ### Load Patients
 
+The data has been split into batches of 240K patients for ease of downloading so this ETL script will
+process the first batch to develop the functions necessary. Eventually all batches will be processed and
+combined into the full patient set
+
+Load the patient table for the batch and retrieve the patient ids for filtering the imd and hes data
+which is full data for all unbatched patient
+
 ```{r}
 pddir <- file.path(ddir,"Patient")
 load_patients(pdir=pddir,dbf=dbif,ow=F)
-str_sql <- "SELECT patid FROM patients;"
-dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
-dbListTables(dbi) 
-patids <- dbGetQuery(dbi,str_sql) %>% as_tibble() %>% pull(patid)
-duckdb::dbDisconnect(dbi)
+patids <- get_patients(dbif) %>% pull(patid)
+```
+
+Load the remaining data file filtering for only the patients in the batch
+
+```{r}
 pddir <- file.path(ddir,"Observation")
 load_obs(pddir=pddir,dbf=dbif,ow=F)
 pddir <- file.path(ddir,"DrugIssue")
@@ -76,6 +85,11 @@ load_practice(pddir=pddir,dbf=dbif,ow=F)
 load_hesfiles(pddir=hdir,dbf=dbif,tad="21_001631.*",pats=patids,ow=F)
 load_imdfiles(pddir=idir,dbf=dbif,tad="21_001631.*",pats=patids,ow=F)
 load_onsfiles(pddir=odir,dbf=dbif,tad="21_001631.*",pats=patids,ow=F)
+```
+
+Load the appropriate CPRD lookups at this point though they may not be necessary
+
+```{r}
 load_cprdfiles(pddir=cdir,dbf=dbif,ow=F)
 ```
 
@@ -105,8 +119,8 @@ linkage_sql <- str_c("
     ON p.patid=i.patid
   LEFT JOIN
     death_patient AS o
-    ON p.patid=o.patid")
-
+    ON p.patid=o.patid 
+  ;")
 dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
 linkages <- dbGetQuery(dbi,linkage_sql) %>% tibble()
 duckdb::dbDisconnect(dbi)
@@ -363,14 +377,14 @@ Perhaps the best thing to do is build a master patient index using the patient d
 baseline date, their exposure/pseudo-exposure date and their linkage status.
 
 ```{r}
-sort( sapply(mget(ls()),object.size) ) 
+lapply(mget(ls()),object.size) %>% plyr::ldply() %>% arrange(desc(V1)) %>% display_data(disp=T)
 lslist <- ls()
 rmlist <- intersect(lslist, 
           c("linkages","sanitydata","cv_vals","dex_vals","idx_vals","t2pats","exppat","cleanidates",
-          "sanitycheck","patids"))
+          "sanitycheck","patids","bln"))
 rm(list=rmlist)
 gc()
-sort( sapply(mget(ls()),object.size) ) 
+lapply(mget(ls()),object.size) %>% plyr::ldply() %>% arrange(desc(V1)) %>% display_data(disp=T)
 extract_mpi(dbif,dbof)
 ```
 
@@ -392,18 +406,20 @@ if(!"drug_dates"%in%dbListTables(dbi)){
 dbDisconnect(dbi,shutdown=T)
 ```
 
+Get the baseline readings for patients at first diabetes diagnosis, or 2005 which ever is the latest
+
+
 ```{r}
-if(F){
-  dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
-  dbListTables(dbi)
-  dbListFields(dbi,"baseline_codes")
-  dbDisconnect(dbi)
-}
-.get_blm <- function(dbf,db=T){
+
+.get_blm <- function(dbf,dbo,variable="baseline",db=T,fv=NULL){
   if(db){
     dbf <- dbif
+    variable <- "baseline" 
+    fv <- NULL
   }
 
+  variables <- c("baseline","n")
+  dropval <- variables[!grepl(variable,variables)]
   blm_sql <- str_c("
     SELECT
       b.patid,
@@ -432,15 +448,74 @@ if(F){
   dbi <- duckdb::dbConnect(duckdb::duckdb(),dbif)
   blm <- dbGetQuery(dbi,blm_sql)
   dbDisconnect(dbi)
-  blmv <- blm %>% select(-n) %>% pivot_wider(names_from="cv",values_from="baseline",values_fill=NULL)
-  bln <- blm %>% select(-baseline) %>% pivot_wider(names_from="cv",values_from="n",values_fill=0)
-  bln
+  blm %>% select(-any_of(dropval)) %>% 
+                pivot_wider(names_from="cv",values_from=variable,values_fill=fv)
+  
 }
-
+bln <- .get_blm(dbif)
+bln %>% head(20) %>% display_data(disp=T)
 ```
+
+## Drug Introduction Dates
 
 Need to create intervention dates for those who have not had any of the medications for each of the
 medication introduction date
+
+```{r}
+dex <- get_table(dbif,tabname="drug_exposures")
+dex %>% select(patid,substance) %>% unique() %>% group_by(substance) %>% 
+  summarise(cohort=n(),.groups="drop")
+```
+
+# Problems
+
+I have re-read the protocol and I really don't have the time to devote to sorting out what they mean.
+
+## Outcomes
+
+What outcome codes are we looking for add the ICD10 outcomes
+
+```{r}
+outcomecodefile <- file.path(projRoot,"t2dd","reference","xls","ICD10_outcome_codes.xlsx")
+outcomecodes <- readxl::read_excel(outcomecodefile, sheet=1)
+names(outcomecodes) <- tolower(names(outcomecodes))
+outcomes <- outcomecodes %>% dplyr::mutate(icd_code=gsub("[ ].*","",icd10code),
+                               term=gsub("^[A-Z][0-9. ]*","",icd10code),
+                               lucode=paste0(gsub("[.]","",icd_code),"%")) %>% 
+  select(icd_code,regex,lucode,term,system,disease) 
+load_table(dataset=outcomes,tab_name="outcome_codes",dbf=dbif)
+
+extract_outcomes(dbf=dbif,dbo=dbof,otab="hes_diagnosis_epi",octab="outcome_codes",etab="hes_outcomes",
+                 ot="o",bt="b",mc1="REPLACE(o.icd,'.','')",mc2="LIKE",mc3="b.lucode",ow=F)
+```
+
+Check the loaded tables so far
+
+```{r}
+dbp <- duckdb::dbConnect(duckdb::duckdb(),dbof)
+dbListTables(dbp)
+dbDisconnect(dbp)
+```
+
+## Get Cohorts
+
+Get patients in cohorts of drug exposures
+
+```{r}
+res <- extract_cohorts(dbf=dbif,dbo=dbof)
+res %>% select(patid,class,cohort,substance,substanceexposuredate) %>%
+    pivot_wider(names_from="substance",values_from="substanceexposuredate") %>%
+    group_by(class,cohort) %>% summarise(n=n(),.groups="drop") %>% 
+    arrange(class,cohort) %>% display_data(disp=T)
+
+res %>% mutate(cohort=ifelse(cohort=="Control",cohort,class)) %>%
+    select(patid,cohort,class,classexposuredate) %>% unique() %>% 
+    pivot_wider(names_from="class",values_from="classexposuredate") %>%
+    group_by(cohort) %>% summarise(n=n(),.groups="drop") %>% display_data(disp=T)
+
+```
+
+
 
 
 ```{r echo=F,eval=F}
@@ -450,5 +525,10 @@ inputFile <- file.path(inputpath,"t2dd_etl.Rmd")
 noteDir <- file.path("/var","www","html","uol","t2dd")
 
 fdisp <- rmarkdown::render(inputFile,encoding=encoding,output_dir=noteDir,clean=T)
-file.copy(fdisp,file.path(homeDir,"OneDrive","ul","Notes","uol","t2dd",basename(fdisp)),over=T)
+if(file.exists(file.path(homeDir,"OneDrive","ul","Notes"))){
+  file.copy(fdisp,file.path(homeDir,"OneDrive","ul","Notes","uol","t2dd",basename(fdisp)),over=T)
+}
+if(Sys.info()["nodename"]=="S600"){
+  system2("firefox",args=paste0(gsub("/var/www/html","http://localhost/",fdisp)),wait=F)
+}
 ```

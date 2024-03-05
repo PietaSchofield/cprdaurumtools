@@ -452,7 +452,7 @@ Get the baseline readings for patients at first diabetes diagnosis, or 2005 whic
                 pivot_wider(names_from="cv",values_from=variable,values_fill=fv)
   
 }
-bln <- .get_blm(dbif)
+bln <- .get_blm(dbif)A
 bln %>% head(20) %>% display_data(disp=T)
 ```
 
@@ -499,7 +499,9 @@ dbDisconnect(dbp)
 
 ## Get Cohorts
 
-Get patients in cohorts of drug exposures
+Get patients in cohorts of drug exposures and generate exposure dates for those who don't have them. This
+is not correct yet as the exposure date here for the controls is drug introduction date and for patients
+who are diagnosed post drug introduction date the exposure date should be diagnosis date?
 
 ```{r}
 res <- extract_cohorts(dbf=dbif,dbo=dbof)
@@ -512,7 +514,16 @@ res %>% mutate(cohort=ifelse(cohort=="Control",cohort,class)) %>%
     select(patid,cohort,class,classexposuredate) %>% unique() %>% 
     pivot_wider(names_from="class",values_from="classexposuredate") %>%
     group_by(cohort) %>% summarise(n=n(),.groups="drop") %>% display_data(disp=T)
+```
 
+## Other drug exposure
+
+This is so complicated
+
+```{r}
+otherdrugs_file <- list.files(file.path(rdir),pattern="other_drug",recur=T,full=T)
+otherdrugs <- readRDS(otherdrugs_file)
+otherdrugs %>% group_by(ATC) %>% summarise(n=n(),.groups="drop") %>% arrange(desc(n))
 ```
 
 

@@ -452,7 +452,7 @@ Get the baseline readings for patients at first diabetes diagnosis, or 2005 whic
                 pivot_wider(names_from="cv",values_from=variable,values_fill=fv)
   
 }
-bln <- .get_blm(dbif)A
+bln <- .get_blm(dbif)
 bln %>% head(20) %>% display_data(disp=T)
 ```
 
@@ -521,7 +521,8 @@ res %>% mutate(cohort=ifelse(cohort=="Control",cohort,class)) %>%
 This is so complicated
 
 ```{r}
-otherdrugs_file <- list.files(file.path(rdir),pattern="other_drug",recur=T,full=T)
+otherdrugs_file <- list.files(file.path(rdir),pattern="other_drug.*rds",recur=T,full=T)
+otherdrugs_file
 otherdrugs <- readRDS(otherdrugs_file)
 otherdrugs %>% group_by(ATC) %>% summarise(n=n(),.groups="drop") %>% arrange(desc(n))
 ```

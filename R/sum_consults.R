@@ -1,12 +1,14 @@
 #' Summarise consultations
 #'
+#' Find the number of consultations prior to the indexdate of first diagnosis. 
+#'
 #'
 #' @export
 sum_consults <- function(dbf,cases='%',short=T,db=F){
   if(db){
-    short=F
-    dbf <- dbfile
-    cases <- "ibd"
+    #short <- F
+    #dbf <- dbfile
+    #cases <- "ibd"
   } 
   sum_sql <- str_c(" 
     SELECT 

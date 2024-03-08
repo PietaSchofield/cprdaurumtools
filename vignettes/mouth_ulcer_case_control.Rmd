@@ -578,10 +578,11 @@ same.
 Perhaps I should be looking at consultations not observations
 
 ```{r}
-res <- sum_consults(dbfile,cases="sle") %>% tibble()
-res %>% mutate(freq=freq/(1+period)) %>% group_by(cohort) %>%
-  summarise(freq=mean(freq),.groups="drop")
-
+res <- sum_consults(dbfile,cases="sle") %>% tibble() 
+casetype <- list(SLE='sle',IDB='ibd',Behcets='behcets')
+lapply(casetype,function(ct){
+  sum_consults(dbfile,cases=ct) %>% pivot_wider(names_from='cohort',values_from='freq')
+}) %>% plyr::ldply() %>% select(codetype, cases, conts) %>% display_data(disp=T)
 ```
 
 
@@ -591,11 +592,13 @@ res %>% mutate(freq=freq/(1+period)) %>% group_by(cohort) %>%
 homeDir <- Sys.getenv("HOME")
 inputpath <- file.path(homeDir,"GitLab","cprdaurumtools","vignettes")
 inputFile <- file.path(inputpath,"mouth_ulcer_case_control.Rmd")
-if(Sys.info()["nodename"]=="s600"){
-  noteDir <- file.path("/var","www","html","uol","mung")
-}else{
-  noteDir <- file.path(homeDir,"Notes","uol","mung")
+noteDir <- file.path("/var","www","html","uol","mung")
+
+fdisp <- rmarkdown::render(inputFile,encoding=encoding,output_dir=noteDir,clean=T)
+if(file.exists(file.path(homeDir,"OneDrive","ul","Notes"))){
+  file.copy(fdisp,file.path(homeDir,"OneDrive","ul","Notes","uol","t2dd",basename(fdisp)),over=T)
 }
-system2("firefox",
-        args=rmarkdown::render(inputFile,encoding=encoding,output_dir=noteDir))
+if(Sys.info()["nodename"]=="S600"){
+  system2("firefox",args=paste0(gsub("/var/www/html","http://localhost/",fdisp)),wait=F)
+}
 ```

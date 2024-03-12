@@ -11,7 +11,7 @@
 #'
 #'
 #' @export
-load_hesfiles <- function(pddir,dbf,ow=F,db=F,tad,pats){
+load_hesfiles <- function(pddir,dbf,ow=F,db=F,tad,pats,pattern="[.]txt"){
   if(db){
     pddir <- hdir 
     dbf <- dbif
@@ -19,7 +19,7 @@ load_hesfiles <- function(pddir,dbf,ow=F,db=F,tad,pats){
     pats <- patids
     ow <- F
   }
-  hesfiles <- list.files(pddir,pattern=".*txt",full=T)
+  hesfiles <- list.files(pddir,pattern=pattern,full=T)
   names(hesfiles) <- tolower(gsub(paste0("_",tad,"[.]txt"),"",basename(hesfiles)))
   lapply(names(hesfiles),function(fn){
     dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)

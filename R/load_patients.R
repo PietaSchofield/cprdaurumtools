@@ -14,8 +14,10 @@ load_patients <- function(pdir,dbf,ow=F,db=F,tab_name="patients",
     dbf <- dbif
     pdir <- pddir
   }
+  pdir
   patfiles <- list.files(pdir,pattern="Patient",full=T,recur=T)
   names(patfiles) <- gsub(paste0("(^",pdir,"/|/Patient/.*)"),"",patfiles)
+  patfiles
   dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
   if(!tab_name%in%duckdb::dbListTables(dbi) || ow){
     dat <- plyr::ldply(lapply(patfiles,function(fn){

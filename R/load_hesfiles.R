@@ -17,10 +17,12 @@ load_hesfiles <- function(pddir,dbf,ow=F,db=F,tad,pats,pattern="[.]txt"){
     dbf <- dbif
     tad <- "21_001631.*"
     pats <- patids
+    pattern <- "hes_patient"
     ow <- F
   }
   hesfiles <- list.files(pddir,pattern=pattern,full=T)
   names(hesfiles) <- tolower(gsub(paste0("_",tad,"[.]txt"),"",basename(hesfiles)))
+  hesfiles
   lapply(names(hesfiles),function(fn){
     dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
     if(!fn%in%duckdb::dbListTables(dbi) || ow){

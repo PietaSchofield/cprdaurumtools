@@ -4,7 +4,7 @@
 \alias{load_hesfiles}
 \title{load hes files}
 \usage{
-load_hesfiles(pddir, dbf, ow = F, db = F, tad, pats)
+load_hesfiles(pddir, dbf, ow = F, db = F, tad, pats, pattern = "[.]txt")
 }
 \arguments{
 \item{pddir}{directory containing hes data}

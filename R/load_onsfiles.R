@@ -25,7 +25,9 @@ load_onsfiles <- function(pddir,dbf,ow=T,db=F,tad,pats){
     dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
     if(!fn%in%duckdb::dbListTables(dbi) || ow){
       dat <- readr::read_tsv(onsfiles[[fn]],col_types=readr::cols(.default=readr::col_character())) %>%
-        as_tibble() %>% dplyr::filter(patid%in%pats)
+        as_tibble() %>% dplyr::filter(patid%in%pats) %>%
+        dplyr::mutate(dor=lubridate::dmy(dor),
+                      dod=lubridate::dmy(dod)) 
       names(dat) <- tolower(names(dat))
       duckdb::dbWriteTable(dbi,fn,dat,overwrite=T)
       duckdb::dbDisconnect(dbi)

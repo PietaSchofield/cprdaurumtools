@@ -7,3 +7,4 @@ get_indexdates <- function(dbf,coitab,db=F,ow=F){
   if(db){
     
   }
+}

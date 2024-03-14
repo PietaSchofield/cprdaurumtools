@@ -13,19 +13,20 @@
 #' @export
 load_hesfiles <- function(pddir,dbf,ow=F,db=F,tad,pats,pattern="[.]txt"){
   if(db){
+    db <- T
     pddir <- hdir 
     dbf <- dbif
     tad <- "21_001631.*"
     pats <- patids
-    pattern <- "hes_patient"
+    pattern <- "hes_diagnosis_hosp"
     ow <- F
   }
   hesfiles <- list.files(pddir,pattern=pattern,full=T)
   names(hesfiles) <- tolower(gsub(paste0("_",tad,"[.]txt"),"",basename(hesfiles)))
-  hesfiles
   lapply(names(hesfiles),function(fn){
     dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
     if(!fn%in%duckdb::dbListTables(dbi) || ow){
+      if(db) fn <- names(hesfiles)[1]
       dat <- readr::read_tsv(hesfiles[[fn]],col_types=readr::cols(.default=readr::col_character())) %>%
         as_tibble() %>% dplyr::filter(patid%in%pats)
       names(dat) <- tolower(names(dat))
@@ -79,7 +80,6 @@ load_hesfiles <- function(pddir,dbf,ow=F,db=F,tad,pats,pattern="[.]txt"){
         }
       )
       duckdb::dbWriteTable(dbi,fn,dat,overwrite=T)
-      fn
       duckdb::dbDisconnect(dbi)
       nr <- dat %>% nrow()
       ext <- "new records"

@@ -15,13 +15,14 @@ load_onsfiles <- function(pddir,dbf,ow=T,db=F,tad,pats){
   if(db){
     pddir <- odir
     tad <- "21_001631"
-    dbf <- "/home/pietas/Projects/t2dd/.data/t2dd_prep.duckdb" 
+    dbf <- dbif
     ow <- T
     pats <- patids
   }  
   onsfiles <- list.files(pddir,pattern="death_.*txt",full=T)
   names(onsfiles) <- tolower(gsub(paste0("_",tad,".*[.]txt"),"",basename(onsfiles)))
   lapply(names(onsfiles),function(fn){
+    fn <- names(onsfiles)[1]
     dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
     if(!fn%in%duckdb::dbListTables(dbi) || ow){
       dat <- readr::read_tsv(onsfiles[[fn]],col_types=readr::cols(.default=readr::col_character())) %>%

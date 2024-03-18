@@ -42,10 +42,9 @@ sum_observations <- function(dbf, cases=NULL,nfilter=1,db=F){
       expandedsymptomlist AS e
       ON o.medcodeid=e.medcodeid
     WHERE 
-      o.obsdate < CAST(i.indexdate AS DATE) AND
+      CAST(o.obsdate AS DATE) < CAST(i.indexdate AS DATE) AND
       i.codetype LIKE '",cases,"') AS s
     ON s.patid=p.patid")
-
 
   sct_sql <- str_c(" 
    SELECT

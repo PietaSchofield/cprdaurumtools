@@ -39,7 +39,7 @@ projRoot <- file.path(homeDir,"Projects")
 projdir <- file.path(projRoot,"mung")
 dir.create(projdir,showW=F)
 datadir <- file.path(projdir,".data","case_control")
-cprddir <- file.path(projRoot,"refdata","aurum","202309_Lookups_CPRDAurum")
+cprddir <- file.path(projRoot,"refdata","aurum","202303_Lookups_CPRDAurum")
 dbfile <- file.path(datadir,"case_control.duckdb")
 .disp <- T
 options(warn=F)

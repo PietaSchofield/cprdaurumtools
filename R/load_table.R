@@ -19,7 +19,7 @@ load_table <- function(filename=NULL,dataset=NULL,dbf,ow=F,db=F,
     if(file.exists(filename)){
       dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
       if(!tab_name%in%duckdb::dbListTables(dbi) || ow){
-        if(tab_name%in%duckdb::dbListTables(dbi)) duckdb::dbExecute(dbi,paste0("DROP TABLE ",tab_name))
+        if(tab_name%in%duckdb::dbListTables(dbi)) DBI::dbExecute(dbi,paste0("DROP TABLE ",tab_name))
         dat <- readr::read_delim(filename,col_types=readr::cols(.default=readr::col_character()),
                                  delim=delim) 
         if(!is.null(selvars)) dat <- dat %>% dplyr::select(dplyr::all_of(selvars)) 
@@ -39,7 +39,7 @@ load_table <- function(filename=NULL,dataset=NULL,dbf,ow=F,db=F,
     if(!is.null(dataset)){
       dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
       if(!tab_name%in%duckdb::dbListTables(dbi) || ow){
-        if(tab_name%in%duckdb::dbListTables(dbi)) duckdb::dbExecute(dbi,paste0("DROP TABLE ",tab_name))
+        if(tab_name%in%duckdb::dbListTables(dbi)) DBI::dbExecute(dbi,paste0("DROP TABLE ",tab_name))
         dat <- dataset
         names(dataset) <- tolower(names(dataset))
         if(!is.null(selvars)) dat <- dat %>% dplyr::select(dplyr::all_of(selvars)) 

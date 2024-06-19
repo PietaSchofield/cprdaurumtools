@@ -2,7 +2,7 @@
 #'
 #'
 #' @export
-gen_drugeras_table <- function(dbf,newtab,tabname,substancefield,db=F){
+gen_drugeras_table <- function(dbf,newtab,tabname,dosetab,substancefield,db=F){
   if(db){
     tabname <- "drug_codes"
     newtab <- "drug_eras"

@@ -14,9 +14,7 @@ load_textfile <- function(pddir,dbf,filename,tabname,ow=F,db=F,sep="\t"){
     sep <- "\t"
   }
   dat <- readr::read_delim(file.path(pddir,filename),col_type=cols(.default=col_character()),delim=sep)
-  names(dat) <- names(dat) %>% tolower()          
-  dat %>% select(term_in_file) %>% unique() %>% as.data.frame()
-  dat <- dat %>% dplyr::select(medcodeid,term,snomedctconceptid)
+  names(dat) <- tolower(names(dat))          
   dbc <- duckdb::dbConnect(duckdb::duckdb(),dbf,write=T)
   if(ow| !tabname %in% dbListTables(dbc)){
     dbWriteTable(dbc,tabname,dat,over=ow)

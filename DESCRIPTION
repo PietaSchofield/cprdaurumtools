@@ -20,4 +20,4 @@ Imports:
     logr,
     DT,
     lubridate
-RoxygenNote: 7.3.1
+RoxygenNote: 7.3.2

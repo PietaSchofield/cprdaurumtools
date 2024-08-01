@@ -24,7 +24,9 @@ load_cprdfiles <- function(pddir,dbf,ow=T,db=F){
     dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
     if(!fn%in%dbListTables(dbi) || ow){
       dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
-      dat <- readr::read_tsv(cprdfiles[[fn]],col_types=readr::cols(.default=readr::col_character())) %>%
+      dat <- readr::read_tsv(cprdfiles[[fn]],
+                             col_types=readr::cols(.default=readr::col_character()),
+                             locale=locale(encoding="ISO-8859-1")) %>%
         as_tibble()
       names(dat) <- tolower(names(dat))
       duckdb::dbWriteTable(dbi,fn,dat,overwrite=T)

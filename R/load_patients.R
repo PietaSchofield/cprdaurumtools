@@ -14,12 +14,11 @@ load_patients <- function(pdir,dbf,ow=F,db=F,tab_name="patients",
     dbf <- dbif
     pdir <- pddir
   }
-  pdir
-  patfiles <- list.files(pdir,pattern="Patient",full=T,recur=T)
-  names(patfiles) <- gsub(paste0("(^",pdir,"/|/Patient/.*)"),"",patfiles)
-  patfiles
   dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
-  if(!tab_name%in%duckdb::dbListTables(dbi) || ow){
+  tabs <- duckdb::dbListTables(dbi)
+  duckdb::dbDisconnect(dbi)
+  if(!tab_name%in%tabs || ow){
+    patfiles <- list.files(pdir,pattern="Patient",full=T,recur=T)
     dat <- plyr::ldply(lapply(patfiles,function(fn){
        readr::read_tsv(fn,col_type=readr::cols(.default=readr::col_character())) %>%
                      dplyr::select(all_of(selvars1)) %>%
@@ -30,11 +29,14 @@ load_patients <- function(pdir,dbf,ow=F,db=F,tab_name="patients",
                             cprd_ddate = format(lubridate::dmy(cprd_ddate)))
                      }))
     nrec <- dat %>% nrow()
+    dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf,write=T)
     duckdb::dbWriteTable(dbi,tab_name,dat,overwrite=T,append=F)
+    dbDisconnect(dbi)
     rm(dat)
     gc()
     ext <- "new records"
   }else{
+    dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
     nrec <- dbGetQuery(dbi,paste0("SELECT COUNT(*) FROM ",tab_name,";"))
     dbDisconnect(dbi)
     ext <- "records exist"

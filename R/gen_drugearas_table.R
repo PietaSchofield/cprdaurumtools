@@ -2,7 +2,9 @@
 #'
 #'
 #' @export
-gen_drugeras_table <- function(dbf,newtab,tabname,dosetab,substancefield,db=F){
+gen_drugeras_table <- function(dbf,tabname="drug_codes",
+                               dosetab="dose_codes",newtab="drug_eras",
+                               substancefield="atc",db=F){
   if(db){
     tabname <- "drug_codes"
     newtab <- "drug_eras"
@@ -96,7 +98,7 @@ gen_drugeras_table <- function(dbf,newtab,tabname,dosetab,substancefield,db=F){
   if(newtab %in% dbListTables(dbi)) dbExecute(dbi,str_c("DROP TABLE ",newtab," ;"))
   dbExecute(dbi,group_sql) 
   dbDisconnect(dbi)
-
+  get_table(dbf,paste0("SELECT * FROM ",newtab,";"))
 }
 
 

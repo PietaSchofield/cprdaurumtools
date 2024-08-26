@@ -13,6 +13,10 @@ gen_drugeras_table <- function(dbf,tabname="drug_codes",
     dbf <- dbif
   }
 
+  drugcode <- get_table(dbf=dbf, sqlstr=str_c("SELECT * FROM drug_codes"))
+  drugcode %>% plib::display_data(disp=T,buttons=T)
+
+
   make_ranked_issues_sql <- stringr::str_c("
   CREATE TABLE
     issue_grouping
@@ -67,13 +71,12 @@ gen_drugeras_table <- function(dbf,tabname="drug_codes",
     ",newtab,"
   AS(
   SELECT
-    ig.patid,
-    dc.atc,
-    dc.moiety,
-    '' AS daily_dose,
-    MIN(ig.issuedate) AS start_date,
-    MAX(ig.issuedate) AS end_date,
-    COUNT(*) AS months
+    ig.patid AS 'patient.id',
+    MIN(ig.issuedate) AS 'drug.era.start.date',
+    MAX(ig.issuedate) AS 'drug.era.end.date',
+    dc.atc AS 'atc.code',
+    dc.moiety AS 'drug.name',
+    CASE WHEN dd.dose_unit LIKE 'MG' THEN dd.daily_dose ELSE NULL END AS 'daily.dose' 
   FROM
     issue_grouping AS ig
   INNER JOIN
@@ -98,7 +101,8 @@ gen_drugeras_table <- function(dbf,tabname="drug_codes",
   if(newtab %in% dbListTables(dbi)) dbExecute(dbi,str_c("DROP TABLE ",newtab," ;"))
   dbExecute(dbi,group_sql) 
   dbDisconnect(dbi)
-  get_table(dbf,paste0("SELECT * FROM ",newtab,";"))
+
+  return(get_table(dbf,paste0("SELECT * FROM ",newtab,";")))
 }
 
 

@@ -29,7 +29,8 @@ gen_measurements_table <- function(dbf,db=F,ow=F){
     (p.regenddate IS NULL OR o.obsdate <= p.regenddate)")
 
   dbc <- dbConnect(duckdb(),dbf)
-  res <- dbGetQuery(dbc,measurements_sql) %>% tibble()
+  res <- dbGetQuery(dbc,measurements_sql) %>% tibble() %>%
+    dplyr::mutate(value.as.number=ifelse(!is.na(value.as.category),NA,value.as.number))
   dbDisconnect(dbc)
-  res
+  return(res) 
 }

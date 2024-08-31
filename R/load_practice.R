@@ -30,7 +30,7 @@ load_practice <- function(pddir,dbf,ow=F,db=F,tab_name="practices",add=F,
   tabs <- dbListTables(dbi)
   dbDisconnect(dbi)
   nrec <- 0
-  if(!tab_name%in% tabs || ow || add)
+  if(!tab_name%in% tabs || ow || add){
     prafiles <- list.files(pddir,pattern="Prac.*txt$",full=T,recur=T)
     extent <- NULL
     if(ow){

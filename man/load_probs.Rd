@@ -10,6 +10,7 @@ load_probs(
   ow = F,
   db = F,
   tab_name = "problems",
+  add = F,
   selvars = c("patid", "obsid", "parentprobobsid", "probenddate", "expduration",
     "lastrevdate", "parentprobrelid", "probstatusid")
 )

@@ -4,7 +4,7 @@
 \alias{load_staff}
 \title{get the drugissue records and convert some fields to useful field types}
 \usage{
-load_staff(pddir, dbf, ow = F, db = F, tab_name = "staff")
+load_staff(pddir, dbf, ow = F, db = F, tab_name = "staff", add = F)
 }
 \arguments{
 \item{bdir}{the name of the batch subdirectory}

@@ -10,6 +10,7 @@ load_cons(
   ow = F,
   db = F,
   tab_name = "consultations",
+  add = F,
   selvars = c("patid", "consid", "consdate", "conssourceid", "cprdconstype",
     "consmedcodeid")
 )

@@ -10,6 +10,7 @@ load_obs(
   ow = F,
   db = F,
   tab_name = "observations",
+  add = F,
   selvars = c("patid", "consid", "parentobsid", "probobsid", "medcodeid", "obsdate",
     "value", "numunitid", "numrangelow", "numrangehigh")
 )

@@ -10,6 +10,7 @@ load_drugissues(
   ow = F,
   db = F,
   tab_name = "drug_issues",
+  add = F,
   selvars2 = c("patid", "prodcodeid", "issuedate", "dosageid", "quantity", "quantunitid",
     "duration")
 )

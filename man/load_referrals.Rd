@@ -4,7 +4,7 @@
 \alias{load_referrals}
 \title{get the drugissue records and convert some fields to useful field types}
 \usage{
-load_referrals(pddir, dbf, ow = F, db = F, tab_name = "referrals")
+load_referrals(pddir, dbf, ow = F, db = F, tab_name = "referrals", add = F)
 }
 \arguments{
 \item{bdir}{the name of the batch subdirectory}

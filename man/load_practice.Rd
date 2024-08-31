@@ -10,6 +10,7 @@ load_practice(
   ow = F,
   db = F,
   tab_name = "practices",
+  add = F,
   selvars = c("pracid", "lcd", "uts", "region")
 )
 }

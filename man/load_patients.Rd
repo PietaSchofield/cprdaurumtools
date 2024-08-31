@@ -10,6 +10,7 @@ load_patients(
   ow = F,
   db = F,
   tab_name = "patients",
+  add = F,
   selvars1 = c("patid", "pracid", "gender", "yob", "regstartdate", "regenddate",
     "emis_ddate", "cprd_ddate")
 )

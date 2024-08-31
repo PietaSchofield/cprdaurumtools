@@ -11,25 +11,31 @@
 #' Pass a table of covariate codes and generate covariates table
 #' @import magrittr
 #' @export
-load_obs <- function(pddir,dbf,ow=F,db=F,tab_name="observations",
+load_obs <- function(pddir,dbf,ow=F,db=F,tab_name="observations",add=F,
     selvars=c("patid","consid","parentobsid","probobsid","medcodeid","obsdate","value","numunitid",
               "numrangelow","numrangehigh")){
   if(F){
-    pddir <- datadir
-    dbf <- dbfile
-    ow <- T
+    pddir <- apath
+    dbf <- sadb
+    ow <- F
     db <- F
+    add <- T
     tab_name <- "observations"
     selvars <- c("patid","consid","parentobsid","probobsid","medcodeid","obsdate","value","numunitid",
                  "numrangelow","numrangehigh")
   }
-  obsfiles <- list.files(pddir,pattern="Obs.*txt$",full=T,recur=T)
+  if(add & ow){
+    stop("Error both overwrite and append set. \n")
+    return()
+  }
   dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
   tabs <- dbListTables(dbi)
   duckdb::dbDisconnect(dbi)
   nrec <- 0
-  if(!tab_name%in%tabs || ow){
-    if(tab_name%in%tabs){
+  if(!tab_name%in%tabs || ow || add){
+    obsfiles <- list.files(pddir,pattern="Obs.*txt$",full=T,recur=T)
+    obsfiles
+    if(tab_name%in%tabs && ow){
       dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
       dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))
       duckdb::dbDisconnect(dbi)

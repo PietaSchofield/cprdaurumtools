@@ -11,26 +11,31 @@
 #' Pass a table of covariate codes and generate covariates table
 #' @import magrittr
 #' @export
-load_referrals <- function(pddir,dbf,ow=F,db=F,tab_name="referrals"){
+load_referrals <- function(pddir,dbf,ow=F,db=F,tab_name="referrals",add=F){
   if(F){
-    pddir <- datadir
-    dbf <- dbfile
+    pddir <- apath
+    dbf <- sadb
     ow <- F
     db <- F
+    add <- T
     tab_name <- "referrals"
   }
-  obsfiles <- list.files(pddir,pattern="Refer.*txt$",full=T,recur=T)
+  if(ow && add){
+    stop("Error append and overwrite both true\n")
+    return()
+  }
   dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
   tabs <- dbListTables(dbi)
   dbDisconnect(dbi)
   nrec <- 0
-  if(!tab_name%in% tabs || ow){
-    if(tab_name%in% tabs){
+  if(!tab_name%in% tabs || ow || add){
+    reffiles <- list.files(pddir,pattern="Refer.*txt$",full=T,recur=T)
+    if(tab_name%in% tabs && ow){
       dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
       duckdb::dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))
       dbDisconnect(dbi)
     }
-    nrec <- lapply(obsfiles,function(fn){
+    nrec <- lapply(reffiles,function(fn){
       dat <- readr::read_tsv(fn,col_types=readr::cols(.default=readr::col_character()))
       dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
       duckdb::dbWriteTable(dbi,tab_name,dat,append=T)

@@ -7,23 +7,28 @@
 #' @param bpp BiocParallal Multicore Parameters
 #'
 #' @export
-load_drugissues <- function(pddir,dbf,ow=F,db=F,tab_name="drug_issues",
+load_drugissues <- function(pddir,dbf,ow=F,db=F,tab_name="drug_issues",add=F,
     selvars2=c("patid","prodcodeid","issuedate","dosageid","quantity","quantunitid","duration")){
   if(F){
-    pddir <- datadir
-    dbf <- dbfile
+    pddir <- apath
+    dbf <- sadb
     ow <- F
     db <- F
+    add <- T
     tab_name <- "drug_issues"
     selvars2 <- c("patid","prodcodeid","issuedate","dosageid","quantity","quantunitid","duration")
   }
-  difiles <- list.files(pddir,pattern="Drug",full=T,recur=T)
+  if(ow && add){
+    stop("Error both overwrite and append true\n")
+    return()
+  }
   dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
   tabs <- dbListTables(dbi)
   duckdb::dbDisconnect(dbi)  
   nrec <- 0
-  if(!tab_name%in%tabs || ow){
-    if(tab_name%in%tabs){
+  if(!tab_name%in%tabs || ow || add){
+    difiles <- list.files(pddir,pattern="Drug",full=T,recur=T)
+    if(tab_name%in%tabs && ow){
       dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
       DBI::dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))
       duckdb::dbDisconnect(dbi)  

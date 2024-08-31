@@ -11,30 +11,35 @@
 #' Pass a table of covariate codes and generate covariates table
 #' @import magrittr
 #' @export
-load_probs <- function( pddir,dbf,ow=F,db=F,tab_name="problems",
+load_probs <- function( pddir,dbf,ow=F,db=F,tab_name="problems",add=F,
     selvars=c("patid","obsid","parentprobobsid","probenddate","expduration","lastrevdate",
               "parentprobrelid","probstatusid")){
   if(F){
-    pddir <- datadir
-    dbf <- dbfile
+    pddir <- apath
+    dbf <- sadb
     ow <- F
     db <- F
+    add <- T
     tab_name <- "problems"
     selvars <- c("patid","obsid","parentprobobsid","probenddate","expduration","lastrevdate",
               "parentprobrelid","probstatusid")
   }
-  obsfiles <- list.files(pddir,pattern="Prob.*txt$",full=T,recur=T)
+  if(ow && add){
+    stop("Error overwrite and append both true\n")
+    return()
+  }
   dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
   tabs <- dbListTables(dbi)
   dbDisconnect(dbi)
   nrec <- 0
-  if(!tab_name%in%tabs || ow){
-    if(tab_name%in%tabs){
+  if(!tab_name%in%tabs || ow || add){
+    profiles <- list.files(pddir,pattern="Prob.*txt$",full=T,recur=T)
+    if(tab_name%in%tabs && ow){
       dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
       duckdb::dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))
       dbDisconnect(dbi)
     }
-    nrec <- lapply(obsfiles,function(fn){
+    nrec <- lapply(profiles,function(fn){
       dat <- readr::read_tsv(fn,col_types=readr::cols(.default=readr::col_character())) %>%
         dplyr::select(dplyr::all_of(selvars)) %>%
         dplyr::mutate(probeddate = format(lubridate::dmy(probenddate)),

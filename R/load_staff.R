@@ -11,30 +11,43 @@
 #' Pass a table of covariate codes and generate covariates table
 #' @import magrittr
 #' @export
-load_staff <- function(pddir,dbf,ow=F,db=F,tab_name="staff"){
+load_staff <- function(pddir,dbf,ow=F,db=F,tab_name="staff",add=F){
   if(F){
-    pddir <- datadir
-    dbf <- dbfile
+    pddir <- apath
+    dbf <- sadb
     ow <- F
     db <- F
+    add <- T
     tab_name <- "staff"
   }
-  obsfiles <- list.files(pddir,pattern="Staff.*txt$",full=T,recur=T)
+  if(ow && add){
+    stop("Error overwrite and append both true\n")
+    return()
+  }
   dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
   tabs <- dbListTables(dbi)
   dbDisconnect(dbi)
   nrec <- 0
-  if(!tab_name%in% tabs || ow){
+  if(!tab_name%in% tabs || ow || add){
+    stafiles <- list.files(pddir,pattern="Staff.*txt$",full=T,recur=T)
+    extent <- NULL
     if(tab_name%in% tabs){
-      dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
-      duckdb::dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))
-      dbDisconnect(dbi)
+      if(ow){
+        dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
+        duckdb::dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))
+        dbDisconnect(dbi)
+      }else{
+        extent <- cprdaurumtools::get_table(dbf,sqlstr=paste0("SELECT * FROM ",tab_name))
+      }
     }
-    dat <- lapply(obsfiles,function(fn){
+    dat <- lapply(stafiles,function(fn){
              dat <- readr::read_tsv(fn,col_types=readr::cols(.default=readr::col_character())) 
            }) %>% bind_rows() %>% unique() 
+    if(exists("extent")){
+      dat <- bind_rows(dat,extent) %>% unique()
+    }
     dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
-    duckdb::dbWriteTable(dbi,tab_name,dat,append=T)
+    duckdb::dbWriteTable(dbi,tab_name,dat,overwrite=T,append=F)
     dbDisconnect(dbi)
     nred <- dat %>% nrow()
     rm(dat)

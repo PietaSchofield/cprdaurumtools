@@ -33,12 +33,14 @@ load_practice <- function(pddir,dbf,ow=F,db=F,tab_name="practices",add=F,
   if(!tab_name%in% tabs || ow || add){
     prafiles <- list.files(pddir,pattern="Prac.*txt$",full=T,recur=T)
     extent <- NULL
-    if(ow){
-      dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
-      duckdb::dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))
-      dbDisconnect(dbi)
-    }else{
-      extent <- cprdaurumtools::get_table(dbf,sqlstr=paste0("SELECT * FROM ",tab_name))
+    if(tab_name%in%tabs){
+      if(ow){
+        dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
+        DBI::dbExecute(dbi,paste0("DROP TABLE ",tab_name,";"))
+        dbDisconnect(dbi)
+      }else{
+        extent <- cprdaurumtools::get_table(dbf,sqlstr=paste0("SELECT * FROM ",tab_name))
+      }
     }
     dat <- lapply(prafiles,function(fn){
       readr::read_tsv(fn,col_types=readr::cols(.default=readr::col_character())) %>%

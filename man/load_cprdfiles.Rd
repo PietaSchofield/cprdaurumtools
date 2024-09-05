@@ -4,7 +4,7 @@
 \alias{load_cprdfiles}
 \title{get the drugissue records and convert some fields to useful field types}
 \usage{
-load_cprdfiles(pddir, dbf, ow = T, db = F)
+load_cprdfiles(pddir, dbf, ow = F, db = F, silent = T)
 }
 \arguments{
 \item{bdir}{the name of the batch subdirectory}

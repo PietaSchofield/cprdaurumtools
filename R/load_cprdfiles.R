@@ -11,36 +11,35 @@
 #' Pass a table of covariate codes and generate covariates table
 #'
 #' @export
-load_cprdfiles <- function(pddir,dbf,ow=T,db=F){
+load_cprdfiles <- function(pddir,dbf,ow=F,db=F,silent=T){
   if(F){
     pddir <- rdir
     dbf <- dbif
-    ow=F
-    db=F
+    ow <- F
+    silent <- T
+    db <- F
   }
+  tabs <- list_tables(dbf=dbf)
   cprdfiles <- list.files(pddir,pattern=".*txt",full=T)
   names(cprdfiles) <- paste0("aurum_",tolower(gsub("(^[0-9]*_|[.]txt)","",basename(cprdfiles))))
   lapply(names(cprdfiles),function(fn){
-    dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
-    if(!fn%in%dbListTables(dbi) || ow){
-      dbi <- duckdb::dbConnect(duckdb::duckdb(),dbf)
+    if(!fn%in%tabs || ow){
       dat <- readr::read_tsv(cprdfiles[[fn]],
                              col_types=readr::cols(.default=readr::col_character()),
                              locale=locale(encoding="ISO-8859-1")) %>%
         as_tibble()
       names(dat) <- tolower(names(dat))
-      duckdb::dbWriteTable(dbi,fn,dat,overwrite=T)
-      duckdb::dbDisconnect(dbi,shutdown=T)
+      load_table(dbf=dbf,dataset=dat,tab_name=fn,ow=ow)
       nr <- dat %>% nrow()
       ext <- "new records"
       rm(dat)
       gc()
-    }else{
-      nr <- dbGetQuery(dbi,paste0("SELECT COUNT(*) FROM ",fn))
-      duckdb::dbDisconnect(dbi,shutdown=T)
+      cat(paste0(basename(fn),": ",nr," ",ext,"\n"))
+    }else if(!silent){
+      nr <- get_table(dbf=dbf,sqlstr=paste0("SELECT COUNT(*) AS occur FROM ",fn)) %>% pull(occur)
       ext <- "records exist"
+      cat(paste0(basename(fn),": ",nr," ",ext,"\n"))
     }
-    cat(paste0(basename(fn),": ",nr," ",ext,"\n"))
   })
   return()
 }

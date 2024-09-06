@@ -13,7 +13,7 @@ make_denom_db <- function(dbn,denomdir,linkdir,db=F){
   if(!"acceptable_patients"%in%tabs){
     acceptable_file <- list.files(denomdir,pattern="Accept",full=T,recur=T)
     acceptable <- acceptable_file %>% readr::read_tsv(col_type=cols(.default=col_character())) %>%
-      mutate(yob=as.numeric(yob),
+      dplyr::mutate(yob=as.numeric(yob),
              emis_ddate=lubridate::dmy(emis_ddate),
              cprd_ddate=lubridate::dmy(cprd_ddate),
              regstartdate=lubridate::dmy(regstartdate),
@@ -27,7 +27,7 @@ make_denom_db <- function(dbn,denomdir,linkdir,db=F){
   if(!"practices"%in%tabs){
     practice_file <- list.files(denomdir,pattern="Practice",full=T,recur=T)
     practices <- practice_file %>% readr::read_tsv(col_type=cols(.default=col_character())) %>%
-      mutate(lcd=lubridate::dmy(lcd))
+      dplyr::mutate(lcd=lubridate::dmy(lcd))
     cprdaurumtools::load_table(dbf=dbn,dataset=practices,tab_name="practices")
     rm(practices)
     gc()
@@ -36,7 +36,7 @@ make_denom_db <- function(dbn,denomdir,linkdir,db=F){
   if(!"linkages"%in%tabs){
     linkage_file <- list.files(linkdir,pattern="eligibil",full=T,recur=T)
     linkages <- linkage_file %>% readr::read_tsv(col_type=cols(.default=col_character())) %>%
-      mutate(linkdate=lubridate::dmy(linkdate))
+      dplyr::mutate(linkdate=lubridate::dmy(linkdate))
     cprdaurumtools::load_table(dbf=dbn,dataset=linkages,tab_name="linkages")
     rm(linkages)
     gc()

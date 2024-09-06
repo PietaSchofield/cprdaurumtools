@@ -13,8 +13,8 @@
 #' @export
 load_cprdfiles <- function(pddir,dbf,ow=F,db=F,silent=T){
   if(F){
-    pddir <- rdir
-    dbf <- dbif
+    pddir <- cpath
+    dbf <- sadb
     ow <- F
     silent <- T
     db <- F

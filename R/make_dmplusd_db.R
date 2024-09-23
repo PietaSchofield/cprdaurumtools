@@ -4,19 +4,20 @@
 make_dmplusd_db <- function(filePath,dbPath=dirname(filePath),db=F,ow=F){
 
   if(db){
-    filePath <- file.path(Sys.getenv("HOME"),"Projects","refdata","dmplusd","downloads")
+    filePath <- dmdpath
     dbPath <- dirname(filePath)
+    xmlpath <- file.path(filePath,"xml")
     ow <- T
   }
 
-  ver <- gsub("(^f_vtm2_|[.]xml$)","", list.files(filePath,pattern="f_vtm")[1])
+  ver <- gsub("(^f_vtm2_|[.]xml$)","", list.files(xmlpath,pattern="f_vtm")[1])
   dbName <- file.path(dbPath,paste0("dmplusd_",ver,".duckdb"))
   if(!file.exists(dbName)| ow){
     dbc <- dbConnect(duckdb(),dbName)
     tabs <- dbListTables(dbc)
     dbDisconnect(dbc,shutdown=T)
-   
-    dmdxmldir <- filePath
+
+    dmdxmldir <- xmlpath
     dmplusd <- list(
       vtm=list(filename=list.files(dmdxmldir,pattern="f_vtm",full=T),entity="VTM"),
       bnfatc <- list(filename=list.files(dmdxmldir,pattern="f_bnf",full=T,recur=T),entity="VMP"),

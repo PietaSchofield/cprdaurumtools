@@ -5,10 +5,11 @@
 #' @export
 get_table <- function(dbf,sqlstr=NULL,tabname=NULL,fields='*',whereclause=NULL){
   if(F){
-    dbf <- dbfile
+    dbf <- dmddb
     tabname <- "drug_exposures"
     fields <- '*'
     whereclause <- NULL
+    strsql <- vtm_sql
   }
   if(is.null(sqlstr)){
     strsql <- str_c("

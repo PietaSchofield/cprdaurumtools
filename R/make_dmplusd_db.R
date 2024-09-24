@@ -4,7 +4,8 @@
 make_dmplusd_db <- function(filePath,dbPath=dirname(filePath),db=F,ow=F){
 
   if(db){
-    filePath <- dmdpath
+    db <- T
+    filePath <- filePath
     dbPath <- dirname(filePath)
     xmlpath <- file.path(filePath,"xml")
     ow <- T
@@ -13,31 +14,29 @@ make_dmplusd_db <- function(filePath,dbPath=dirname(filePath),db=F,ow=F){
   ver <- gsub("(^f_vtm2_|[.]xml$)","", list.files(xmlpath,pattern="f_vtm")[1])
   dbName <- file.path(dbPath,paste0("dmplusd_",ver,".duckdb"))
   if(!file.exists(dbName)| ow){
-    dbc <- dbConnect(duckdb(),dbName)
-    tabs <- dbListTables(dbc)
-    dbDisconnect(dbc,shutdown=T)
+    tabs <- cprdaurumtools::list_tables(dbf=dbName)
 
     dmdxmldir <- xmlpath
     dmplusd <- list(
-      vtm=list(filename=list.files(dmdxmldir,pattern="f_vtm",full=T),entity="VTM"),
-      bnfatc <- list(filename=list.files(dmdxmldir,pattern="f_bnf",full=T,recur=T),entity="VMP"),
-      vmp=list(filename=list.files(dmdxmldir,pattern="f_vmp[0-9]",full=T),entity="VMP"),
-      amp=list(filename=list.files(dmdxmldir,pattern="f_amp[0-9]",full=T),entity="AMP"),
-      vmpp=list(filename=list.files(dmdxmldir,pattern="f_vmpp",full=T),entity="VMPP"),
-      ampp=list(filename=list.files(dmdxmldir,pattern="f_ampp",full=T),entity="AMPP"),
-      ingredients=list(filename=list.files(dmdxmldir,pattern="f_ingredient",full=T),entity="ING"),
-      lookups=list(filename=list.files(dmdxmldir,pattern="f_lookup",full=T),entity="INFO"))
+      vtm=c(filename=list.files(dmdxmldir,pattern="f_vtm",full=T), entity="VTM",tabname="vtm"),
+      bnf=c(filename=list.files(dmdxmldir,pattern="f_bnf",full=T,recur=T),entity="VMP",tabname="bnf"),
+      vmp=c(filename=list.files(dmdxmldir,pattern="f_vmp[0-9]",full=T),entity="VMP",tabname="vmp"),
+      amp=c(filename=list.files(dmdxmldir,pattern="f_amp[0-9]",full=T),entity="AMP",tabname="amp"),
+      vmpp=c(filename=list.files(dmdxmldir,pattern="f_vmpp",full=T),entity="VMPP",tabname="vmpp"),
+      ampp=c(filename=list.files(dmdxmldir,pattern="f_ampp",full=T),entity="AMPP",tabname="ampp"),
+      ingredients=c(filename=list.files(dmdxmldir,pattern="f_ingre",full=T),entity="ING",tabname="ing"),
+      lookups=c(filename=list.files(dmdxmldir,pattern="f_lookup",full=T),entity="INFO",tabname="info"))
+    
+    if(db){
+      dmplusd
+    }
 
-    dmplusdlist <- BiocParallel::bplapply(dmplusd,function(dmd){
-        xmlconvert::xml_to_df(file=dmd$filename,records.tag=dmd$entity,check.datatype=F)
+    lapply(dmplusd,function(dmd){
+      if(file.exists(dmd["filename"])){
+        dnd <- xml_to_tibble(fileName=dmd["filename"],root=dmd["entity"]) 
+        cprdaurumtools::load_table(dbf=dbName,dataset=dnd,tab_name=dmd["tabname"])
+      }
     })
-
-    lapply(names(dmplusdlist),function(dn){
-      dbc <- dbConnect(duckdb(),dbName,write=T)
-      dbWriteTable(dbc,dn,dmplusdlist[[dn]],overwrite=T)
-      dbDisconnect(dbc,shutdown=T)
-    })
-   
   }
   return(dbName)
 }

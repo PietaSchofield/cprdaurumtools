@@ -1,19 +1,19 @@
 #' xml to tibble
 #'
 #' @export
-xml_to_tibble <- function(fileName,root,db=F){
+xml_to_tibble <- function(fileName,root,wks=3,db=F){
 
   if(db){
     db <- T
     filePath <- file.path(Sys.getenv("HOME"),"Projects","refdata","dmplusd","4230924_files")
     files <- list.files(filePath,pattern=".*xml",recur=T,full=T)
     root <- "VMPP"
-    wks <- 3
+    wks <- 19
   }
   xml_data <- xml2::read_xml(fileName)
   root_nodes <- xml2::xml_find_all(xml_data,paste0(".//",root))
   future::plan(future::multicore,workers=wks) 
-  nodes_table <- furrr::future_map(root_nodes,parse_node,idf) %>% bind_rows()
+  nodes_table <- furrr::future_map(root_nodes,parse_node,root) %>% bind_rows()
   nodes_table
 }
 

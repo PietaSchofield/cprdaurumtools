@@ -1,16 +1,17 @@
 #' make a duckdb 
 #'
 #' @export
-make_dmplusd_db <- function(filePath,dbPath=dirname(filePath),db=F,ow=F){
+make_dmplusd_db <- function(filePath,dbPath=dirname(filePath),wks=3,db=F,ow=F){
 
   if(db){
     db <- T
-    filePath <- filePath
+    filePath <- dmdpath
     dbPath <- dirname(filePath)
-    xmlpath <- file.path(filePath,"xml")
+    wks <- 15
     ow <- T
   }
 
+  xmlpath <- file.path(filePath,"xml")
   ver <- gsub("(^f_vtm2_|[.]xml$)","", list.files(xmlpath,pattern="f_vtm")[1])
   dbName <- file.path(dbPath,paste0("dmplusd_",ver,".duckdb"))
   if(!file.exists(dbName)| ow){
@@ -33,7 +34,7 @@ make_dmplusd_db <- function(filePath,dbPath=dirname(filePath),db=F,ow=F){
 
     lapply(dmplusd,function(dmd){
       if(file.exists(dmd["filename"])){
-        dnd <- xml_to_tibble(fileName=dmd["filename"],root=dmd["entity"]) 
+        dnd <- cprdaurumtools::xml_to_tibble(fileName=dmd["filename"],root=dmd["entity"],wks=wks) 
         cprdaurumtools::load_table(dbf=dbName,dataset=dnd,tab_name=dmd["tabname"])
       }
     })
